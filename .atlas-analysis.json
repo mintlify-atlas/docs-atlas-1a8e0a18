@@ -1,0 +1,144 @@
+{
+  "projectType": "saas",
+  "projectName": "Doss",
+  "projectDescription": "Doss is a full-stack digital wallet and payment platform built on Laravel, enabling users to send money, deposit funds, manage withdrawals, exchange currencies, and process merchant payments.",
+  "theme": "maple",
+  "primaryColor": "#040404",
+  "lightColor": "#ef370f",
+  "darkColor": "#f79d72",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart", "installation"]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/wallet",
+              "features/send-money",
+              "features/deposits",
+              "features/withdrawals",
+              "features/currency-exchange",
+              "features/merchant-payments",
+              "features/invoices",
+              "features/request-money"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "users/roles-permissions",
+              "users/kyc-verification",
+              "users/two-factor-auth",
+              "users/cashier-shifts"
+            ]
+          },
+          {
+            "group": "Admin Guide",
+            "pages": [
+              "admin/dashboard",
+              "admin/user-management",
+              "admin/fees-limits",
+              "admin/payment-methods",
+              "admin/currency-management",
+              "admin/modules"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/stripe",
+              "integrations/paypal",
+              "integrations/coinpayments",
+              "integrations/twilio",
+              "integrations/firebase"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/authentication",
+              "api/registration"
+            ]
+          },
+          {
+            "group": "User",
+            "pages": [
+              "api/profile",
+              "api/wallet-balance"
+            ]
+          },
+          {
+            "group": "Transactions",
+            "pages": [
+              "api/transactions",
+              "api/send-money",
+              "api/request-money",
+              "api/deposit",
+              "api/withdrawal",
+              "api/exchange"
+            ]
+          },
+          {
+            "group": "QR Code & Merchants",
+            "pages": [
+              "api/qr-code",
+              "api/merchant-payments"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Digital wallet with multi-currency support",
+    "Send and receive money between users",
+    "Deposits via bank, Stripe, PayPal, and CoinPayments",
+    "Withdrawals with configurable payout settings",
+    "Currency exchange with fee management",
+    "Merchant payment processing and QR codes",
+    "Invoice creation and payment",
+    "Request money with dispute resolution",
+    "KYC document verification (identity and address proofs)",
+    "Two-factor authentication (SMS OTP and Google Authenticator)",
+    "Cashier shift management",
+    "Role-based permissions for admin, users, merchants, and cashiers",
+    "Activity logs and revenue reporting",
+    "REST API with Laravel Passport authentication",
+    "Real-time notifications via Firebase FCM and Pusher",
+    "Modular architecture with Laravel Modules"
+  ],
+  "publicApiSurface": [
+    "POST /api/login",
+    "POST /api/registration",
+    "GET /api/get-user-profile",
+    "POST /api/update-user-profile",
+    "GET /api/get-default-wallet-balance",
+    "GET /api/available-balance",
+    "GET /api/activityall",
+    "GET /api/transaction-details",
+    "POST /api/send-money",
+    "POST /api/request-money",
+    "GET /api/get-deposit-currency-list",
+    "POST /api/deposit/stripe-make-payment",
+    "POST /api/deposit/bank-payment-store",
+    "POST /api/deposit/coinpayments-payment-store",
+    "POST /api/add-withdraw-setting",
+    "POST /api/withdrawal-money",
+    "POST /api/exchange-money",
+    "GET /api/qr-code",
+    "POST /api/profile-image-upload",
+    "POST /api/update-password",
+    "GET /api/payout-setting",
+    "POST /api/delete-payout-setting"
+  ]
+}
