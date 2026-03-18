@@ -1,0 +1,82 @@
+---
+title: 'Stripe Integration'
+description: 'Accept card payments for wallet deposits using Stripe Payment Intents.'
+keywords: ['stripe', 'card payments', 'deposit', 'payment gateway']
+---
+
+Doss uses Stripe to process credit and debit card payments for wallet deposits. The integration uses the Stripe Payment Intents API (`stripe/stripe-php ^10.7`) and follows a two-step flow: create a payment intent, then confirm it with a tokenized card.
+
+## Prerequisites
+
+- A [Stripe](https://stripe.com) account
+- A publishable key and a secret key from your Stripe dashboard (test or live)
+- The Stripe payment method enabled for the target currency in the Doss admin panel
+
+<Warning>
+Never use your live secret key in a development or staging environment. Live keys process real charges immediately. Use test keys (`sk_test_...` / `pk_test_...`) until you are ready to go live.
+</Warning>
+
+## Configuration
+
+<Steps>
+  <Step title="Open the payment method settings">
+    In the Doss admin panel, navigate to **Payment Methods** and select **Stripe**.
+  </Step>
+
+  <Step title="Enter your API keys">
+    Enter your Stripe **Publishable Key** and **Secret Key**. These are stored per currency in the `currency_payment_methods` table under the `method_data` JSON column as `publishable_key` and `secret_key`.
+  </Step>
+
+  <Step title="Activate Stripe for deposit">
+    Enable the method for the **deposit** transaction type on each currency where you want to accept card payments. The `activated_for` field must include `deposit`.
+  </Step>
+
+  <Step title="Set fees and limits">
+    Configure the minimum/maximum deposit limits and fee structure (percentage and fixed) for the Stripe payment method under **Fees & Limits**.
+  </Step>
+</Steps>
+
+## Payment flow
+
+When a user selects Stripe as their deposit method, the application follows this sequence:
+
+1. **Redirect to card form** — `GET /deposit/stripe_payment` loads the card entry page. The publishable key is passed to the view to initialize the Stripe client.
+2. **Make payment** — `POST /deposit/stripe-make-payment` calls `StripeRepository::makePayment()`, which:
+   - Creates a PaymentIntent (`stripe->paymentIntents->create`) for the total amount in the wallet currency (amount is multiplied by 100 to convert to the smallest currency unit).
+   - Creates a PaymentMethod (`stripe->paymentMethods->create`) using the submitted card number, expiry month/year, and CVC.
+   - Returns the `paymentIntentId` and `paymentMethodId` on success.
+3. **Confirm payment** — `POST /deposit/stripe-confirm-payment` calls `StripeRepository::paymentConfirm()`, which calls `stripe->paymentIntents->confirm` with the intent ID and method ID.
+   - If the intent status is `succeeded`, the deposit and transaction records are written to the database and the user's wallet balance is updated.
+   - If the status is `requires_action`, the request is rejected — 3DS cards are not supported.
+4. **Success page** — `GET /deposit/stripe-payment/success` displays the confirmed transaction details.
+
+### API routes
+
+| Method | Route | Handler |
+|--------|-------|---------|
+| `GET` | `/deposit/stripe_payment` | `DepositController@stripePayment` |
+| `POST` | `/deposit/stripe-make-payment` | `DepositController@stripeMakePayment` |
+| `POST` | `/deposit/stripe-confirm-payment` | `DepositController@stripeConfirm` |
+| `GET` | `/deposit/stripe-payment/success` | `DepositController@stripePaymentSuccess` |
+
+The same flow is exposed for the mobile API under `Api\DepositMoneyController@stripeMakePayment` and `Api\DepositMoneyController@stripeConfirm`.
+
+## Test mode vs live mode
+
+Stripe keys determine the environment automatically:
+
+| Key prefix | Environment |
+|------------|-------------|
+| `sk_test_` / `pk_test_` | Test — no real charges, use [Stripe test cards](https://stripe.com/docs/testing) |
+| `sk_live_` / `pk_live_` | Live — real charges processed immediately |
+
+Swap keys in the admin panel to move between environments. No code changes are required.
+
+## Webhook setup
+
+This integration does not use Stripe webhooks. Payment confirmation is handled synchronously via the `/deposit/stripe-confirm-payment` endpoint immediately after the user submits the card form. If you require asynchronous confirmation (for example, for delayed card networks), you would need to add a webhook endpoint and configure it in the Stripe dashboard.
+
+## Limitations
+
+- **3DS cards are not supported.** If a card requires additional authentication (`requires_action` status), the payment is rejected with the message `"3DS cards are not supported"`.
+- The card number, expiry, and CVC are submitted directly from the client to your server and then to Stripe. Ensure your server is PCI-compliant or use Stripe Elements to tokenize on the client side instead.

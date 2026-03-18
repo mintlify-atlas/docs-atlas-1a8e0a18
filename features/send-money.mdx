@@ -1,0 +1,111 @@
+---
+title: "Send Money"
+description: "Transfer funds instantly to another Doss user by their user ID, email address, or phone number."
+---
+
+## Overview
+
+Send Money lets you transfer funds from one of your wallets to another Doss user. The recipient is looked up by their registered **email address**, **phone number**, or **Doss user ID** (prefixed `ZG-`). If the recipient is a registered user, the transfer completes immediately and both parties receive a transaction record. If the recipient is not yet registered, the transfer is created in a `Pending` state until they join.
+
+Fees for transfers are configured per currency by the administrator in Fees & Limits settings.
+
+## How to send money
+
+<Steps>
+  <Step title="Go to Send Money">
+    Navigate to **Send / Receive > Send**. The form shows all wallets that have an active fees configuration for transfers.
+  </Step>
+  <Step title="Select a wallet">
+    Choose the wallet (currency) you want to send from. Only wallets with an active `Transferred` transaction type in Fees & Limits are shown.
+  </Step>
+  <Step title="Enter the recipient">
+    Enter the recipient's email address, phone number (e.g. `+12015550123`), or Doss user ID (the numeric part of their `ZG-` ID).
+
+    The system validates the input in real time:
+    - You cannot send money to yourself.
+    - Suspended or inactive accounts cannot receive transfers.
+    - A user ID lookup returns the recipient's name and profile picture for confirmation before you proceed.
+  </Step>
+  <Step title="Enter the amount and note">
+    Enter the transfer amount. The fee breakdown is calculated dynamically:
+
+    - **Percentage fee** — `amount × (charge_percentage / 100)`
+    - **Fixed fee** — `charge_fixed`
+    - **Total deducted** — `amount + total_fees`
+
+    A note is required and is stored on the transaction record.
+  </Step>
+  <Step title="Review and enter your PIN">
+    A confirmation screen shows the recipient, amount, fees, and total. Enter your account PIN to authorize the transfer.
+  </Step>
+  <Step title="Transfer complete">
+    On success, the sender's wallet is debited and the receiver's wallet is credited. Both users receive email or SMS notifications depending on account preferences.
+  </Step>
+</Steps>
+
+<Note>
+If you enter a phone number, your own phone number must be set on your profile first. The system will prompt you if it is not configured.
+</Note>
+
+## Fee structure
+
+Fees are set per currency by the administrator. The system applies two components:
+
+| Component | How it is calculated |
+|---|---|
+| Percentage fee | `amount × charge_percentage ÷ 100` |
+| Fixed fee | `charge_fixed` (flat amount) |
+| Total fees | `percentage_fee + fixed_fee` |
+| Amount deducted | `amount + total_fees` |
+
+The fee breakdown is shown on the confirmation screen before you authorize.
+
+## Transaction limits
+
+Each currency has a configured minimum and maximum transfer amount:
+
+- If the amount is below the minimum, the transfer is rejected with a minimum amount error.
+- If the amount is above the maximum (when set), the transfer is rejected with a range error.
+- If your wallet balance is less than `amount + total_fees`, the transfer is blocked.
+
+<Tip>
+The amount limit check runs both client-side (live feedback) and server-side (at confirmation) to prevent race conditions.
+</Tip>
+
+## Transaction status tracking
+
+| Status | Meaning |
+|---|---|
+| `Pending` | Recipient was not found as a registered user at transfer time |
+| `Success` | Transfer completed and recipient wallet was credited |
+
+You can view the status of all your transfers in **Transactions**, filtered by type `Transferred`.
+
+A PDF receipt can be generated from the transaction detail view.
+
+## Finding a recipient
+
+The system resolves the recipient by checking the following fields in order:
+
+1. `email` column on the users table
+2. `formattedPhone` column (international format, e.g. `+12015550123`)
+3. `uuid` column prefixed with `ZG-` (Doss user ID)
+
+If no matching user is found, an "Invalid User ID" error is returned and the transfer does not proceed.
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Request Money" icon="hand" href="/features/request-money">
+    Ask another user to send funds to you.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    Understand wallet balances and transaction history.
+  </Card>
+  <Card title="Invoices" icon="file-invoice" href="/features/invoices">
+    Send a formal invoice that triggers a wallet-to-wallet payment.
+  </Card>
+  <Card title="Merchant Payments" icon="store" href="/features/merchant-payments">
+    Accept payments as a merchant using QR codes or payment links.
+  </Card>
+</CardGroup>

@@ -1,0 +1,518 @@
+---
+title: "Deposits API"
+description: "Deposit funds using Stripe, PayPal, bank transfer, or CoinPayments."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Flow overview
+
+<Steps>
+  <Step title="Get available currencies">
+    Call `GET /get-deposit-currency-list`.
+  </Step>
+  <Step title="Get available payment methods">
+    Call `POST /fees-limit-currency-payment-methods-is-active-payment-methods-list` with the chosen currency.
+  </Step>
+  <Step title="Check amount and fees">
+    Call `GET /get-deposit-details-with-amount-limit-check`.
+  </Step>
+  <Step title="Complete the deposit">
+    Choose the appropriate payment endpoint: Stripe, PayPal, Bank, or CoinPayments.
+  </Step>
+</Steps>
+
+---
+
+## GET /get-deposit-currency-list
+
+Returns the list of currencies available for deposit, filtered by active fee/limit rules.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID (used to determine the default wallet).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="currencies" type="object">Key-value map of currency_id to `{id, code, type}`.</ResponseField>
+    <ResponseField name="defaultWalletCurrencyId" type="number">Currency ID of the user's default wallet.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-deposit-currency-list?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /get-deposit-bank-list
+
+Returns banks available for bank-transfer deposits for a given currency.
+
+### Request parameters
+
+<ParamField query="currency_id" type="number" required>
+  The selected currency ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` if no banks found.</ResponseField>
+    <ResponseField name="banks" type="array">
+      List of bank objects.
+      <Expandable title="bank properties">
+        <ResponseField name="id" type="number">Bank ID.</ResponseField>
+        <ResponseField name="bank_name" type="string">Bank name.</ResponseField>
+        <ResponseField name="is_default" type="string">`Yes` or `No`.</ResponseField>
+        <ResponseField name="account_name" type="string">Account holder name.</ResponseField>
+        <ResponseField name="account_number" type="string">Account number.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-deposit-bank-list?currency_id=1' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /fees-limit-currency-payment-methods-is-active-payment-methods-list
+
+Returns the active payment methods available for a given currency and deposit transaction type.
+
+### Request parameters
+
+<ParamField body="currency_id" type="number" required>
+  The selected currency ID.
+</ParamField>
+
+<ParamField body="currencyType" type="string" required>
+  `fiat` or `crypto`.
+</ParamField>
+
+<ParamField body="transaction_type_id" type="number" required>
+  The deposit transaction type ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="paymentMethods" type="object">Key-value map of payment_method_id to `{id, name}`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/fees-limit-currency-payment-methods-is-active-payment-methods-list \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"currency_id": 1, "currencyType": "fiat", "transaction_type_id": 2}'
+```
+
+---
+
+## GET /get-deposit-details-with-amount-limit-check
+
+Validates the deposit amount and returns a full fee breakdown.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="amount" type="number" required>
+  Intended deposit amount.
+</ParamField>
+
+<ParamField query="currency_id" type="number" required>
+  Selected currency ID.
+</ParamField>
+
+<ParamField query="paymentMethodId" type="number" required>
+  Selected payment method ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on limit failure.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `minLimit` or `minMaxLimit`.</ResponseField>
+    <ResponseField name="amount" type="number">Deposit amount.</ResponseField>
+    <ResponseField name="feesPercentage" type="number">Calculated percentage fee.</ResponseField>
+    <ResponseField name="feesFixed" type="number">Fixed fee amount.</ResponseField>
+    <ResponseField name="totalFees" type="number">Total fees.</ResponseField>
+    <ResponseField name="totalAmount" type="number">Amount + total fees.</ResponseField>
+    <ResponseField name="currCode" type="string">Currency code.</ResponseField>
+    <ResponseField name="currSymbol" type="string">Currency symbol.</ResponseField>
+    <ResponseField name="currType" type="string">`fiat` or `crypto`.</ResponseField>
+    <ResponseField name="min" type="number">Minimum deposit limit.</ResponseField>
+    <ResponseField name="max" type="number">Maximum deposit limit (null if unlimited).</ResponseField>
+    <ResponseField name="balance" type="number">User's current wallet balance for this currency.</ResponseField>
+    <ResponseField name="paymentMethodName" type="string">Name of the selected payment method.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-deposit-details-with-amount-limit-check?user_id=42&amount=200&currency_id=1&paymentMethodId=3' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /deposit/stripe-make-payment
+
+Initiates a Stripe card deposit by creating a payment intent.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="cardNumber" type="string" required>
+  Card number.
+</ParamField>
+
+<ParamField body="month" type="number" required>
+  Card expiry month (1–12).
+</ParamField>
+
+<ParamField body="year" type="number" required>
+  Card expiry year (4 digits).
+</ParamField>
+
+<ParamField body="cvc" type="number" required>
+  Card CVC/CVV.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Deposit amount (before fees).
+</ParamField>
+
+<ParamField body="totalAmount" type="number" required>
+  Total amount including fees.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="payment_method_id" type="number" required>
+  Payment method ID for Stripe.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="message" type="string">Error message on failure.</ResponseField>
+    <ResponseField name="paymentIntendId" type="string">Stripe payment intent ID. Pass to `/deposit/stripe-confirm-payment`.</ResponseField>
+    <ResponseField name="paymentMethodId" type="string">Stripe payment method ID. Pass to `/deposit/stripe-confirm-payment`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/stripe-make-payment \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "cardNumber": "4242424242424242",
+    "month": 12,
+    "year": 2026,
+    "cvc": 123,
+    "amount": 200,
+    "totalAmount": 206,
+    "currency_id": 1,
+    "payment_method_id": 3
+  }'
+```
+
+---
+
+## POST /deposit/stripe-confirm-payment
+
+Confirms a Stripe payment intent and credits the user's wallet.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="paymentIntendId" type="string" required>
+  Stripe payment intent ID from `/deposit/stripe-make-payment`.
+</ParamField>
+
+<ParamField body="paymentMethodId" type="string" required>
+  Stripe payment method ID from `/deposit/stripe-make-payment`.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Original deposit amount.
+</ParamField>
+
+<ParamField body="totalAmount" type="number" required>
+  Total amount including fees.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="payment_method_id" type="number" required>
+  Payment method ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/stripe-confirm-payment \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "paymentIntendId": "pi_abc123",
+    "paymentMethodId": "pm_xyz456",
+    "amount": 200,
+    "totalAmount": 206,
+    "currency_id": 1,
+    "payment_method_id": 3
+  }'
+```
+
+---
+
+## POST /deposit/get-paypal-info
+
+Retrieves the PayPal client ID and configuration for the given currency and payment method. Use the returned credentials to initialize the PayPal SDK on the client.
+
+### Request parameters
+
+<ParamField body="currency_id" type="number" required>
+  The selected currency ID.
+</ParamField>
+
+<ParamField body="method_id" type="number" required>
+  The PayPal payment method ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` if credentials not found.</ResponseField>
+    <ResponseField name="method_info" type="object">Decoded PayPal configuration object (client_id, secret, mode, etc.).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/get-paypal-info \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"currency_id": 1, "method_id": 4}'
+```
+
+---
+
+## POST /deposit/paypal-payment-store
+
+Records a completed PayPal deposit. Call this after the PayPal SDK confirms a `COMPLETED` transaction.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Deposit amount (before fees).
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="paymentMethodId" type="number" required>
+  PayPal payment method ID.
+</ParamField>
+
+<ParamField body="details" type="object" required>
+  PayPal order details object returned by the SDK. Must contain `status: "COMPLETED"`.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="transaction" type="object">Created transaction record.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/paypal-payment-store \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "amount": 200,
+    "currency_id": 1,
+    "paymentMethodId": 4,
+    "details": {"status": "COMPLETED", "id": "PAYPAL-ORDER-ID"}
+  }'
+```
+
+---
+
+## POST /deposit/bank-payment-store
+
+Records a bank transfer deposit. The deposit is created with `Pending` status and must be confirmed by an administrator.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Deposit amount.
+</ParamField>
+
+<ParamField body="bank_id" type="number" required>
+  The bank ID from `/get-deposit-bank-list`.
+</ParamField>
+
+<ParamField body="deposit_payment_id" type="number" required>
+  Payment method ID for the bank.
+</ParamField>
+
+<ParamField body="deposit_payment_name" type="string" required>
+  Payment method name (e.g. `Bank`).
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees amount.
+</ParamField>
+
+<ParamField body="file" type="file">
+  Optional proof-of-payment file upload (multipart/form-data).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>Bank deposits are created as `Pending` and require admin approval before funds are credited.</Warning>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/bank-payment-store \
+  --header 'Authorization: Bearer {token}' \
+  --form 'user_id=42' \
+  --form 'currency_id=1' \
+  --form 'amount=500' \
+  --form 'bank_id=2' \
+  --form 'deposit_payment_id=5' \
+  --form 'deposit_payment_name=Bank' \
+  --form 'totalFees=5' \
+  --form 'file=@/path/to/receipt.pdf'
+```
+
+---
+
+## POST /deposit/coinpayments-payment-store
+
+Initiates a CoinPayments crypto deposit. Returns a payment address and QR code URL.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Cryptocurrency currency ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Deposit amount.
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees.
+</ParamField>
+
+<ParamField body="currency_type" type="string" required>
+  Must be `crypto`.
+</ParamField>
+
+<ParamField body="deposit_payment_id" type="number" required>
+  CoinPayments payment method ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="qrcode_url" type="string">URL of the payment QR code image.</ResponseField>
+    <ResponseField name="payment_address" type="string">Crypto wallet address to send funds to.</ResponseField>
+    <ResponseField name="time_created" type="number">Unix timestamp of transaction creation.</ResponseField>
+    <ResponseField name="time_expires" type="number">Unix timestamp when the address expires.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/deposit/coinpayments-payment-store \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "currency_id": 10,
+    "amount": 0.005,
+    "totalFees": 0.0001,
+    "currency_type": "crypto",
+    "deposit_payment_id": 6
+  }'
+```

@@ -1,0 +1,144 @@
+---
+title: "Transactions"
+description: "List transaction history and retrieve individual transaction details."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+---
+
+## GET /activityall
+
+Returns a paginated list of transactions for the authenticated user filtered by type.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="type" type="string" required>
+  Transaction type filter. Common values: `Transfer`, `Deposit`, `Withdrawal`, `Exchange`, `Payment_Sent`, `Payment_Received`, `Request_Sent`, `Request_Received`.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="transactions" type="array">
+  Paginated list of transaction objects. Each item includes:
+  <Expandable title="transaction properties">
+    <ResponseField name="id" type="number">Transaction ID.</ResponseField>
+    <ResponseField name="uuid" type="string">Unique transaction reference code.</ResponseField>
+    <ResponseField name="transaction_type_id" type="number">Numeric ID for the transaction type.</ResponseField>
+    <ResponseField name="currency_id" type="number">Currency ID.</ResponseField>
+    <ResponseField name="subtotal" type="number">Amount before fees.</ResponseField>
+    <ResponseField name="total" type="number">Amount including fees (negative for outgoing).</ResponseField>
+    <ResponseField name="charge_percentage" type="number">Percentage-based fee applied.</ResponseField>
+    <ResponseField name="charge_fixed" type="number">Fixed fee applied.</ResponseField>
+    <ResponseField name="status" type="string">`Success`, `Pending`, or `Blocked`.</ResponseField>
+    <ResponseField name="created_at" type="string">ISO 8601 timestamp.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error responses
+
+| Status | Reason |
+|--------|--------|
+| `401` | `user_id` or `type` parameter missing |
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/activityall?user_id=42&type=Transfer' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /transaction-details
+
+Returns the full details of a single transaction.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="tr_id" type="number" required>
+  The transaction ID to retrieve.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="transaction" type="object">
+  Full transaction object including related model data (currency, payment method, reference records).
+  <Expandable title="transaction properties">
+    <ResponseField name="id" type="number">Transaction ID.</ResponseField>
+    <ResponseField name="uuid" type="string">Unique reference code.</ResponseField>
+    <ResponseField name="subtotal" type="number">Amount before fees.</ResponseField>
+    <ResponseField name="total" type="number">Total amount including fees.</ResponseField>
+    <ResponseField name="charge_percentage" type="number">Percentage fee.</ResponseField>
+    <ResponseField name="charge_fixed" type="number">Fixed fee.</ResponseField>
+    <ResponseField name="percentage" type="number">Fee percentage rate.</ResponseField>
+    <ResponseField name="status" type="string">Transaction status.</ResponseField>
+    <ResponseField name="transaction_type_id" type="number">Transaction type identifier.</ResponseField>
+    <ResponseField name="payment_method_id" type="number">Payment method identifier.</ResponseField>
+    <ResponseField name="created_at" type="string">Creation timestamp.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error responses
+
+| Status | Reason |
+|--------|--------|
+| `401` | `user_id` parameter missing |
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/transaction-details?user_id=42&tr_id=1001' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /transaction-details/request-payment/check-creator-status
+
+Checks the account status of the creator of a request payment transaction. Useful when deciding whether to allow acceptance.
+
+### Request parameters
+
+<ParamField query="trans_id" type="number" required>
+  The transaction ID of the request payment.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+    <ResponseField name="transaction-user-status" type="string">Creator's account status: `Active`, `Inactive`, or `Suspended`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/transaction-details/request-payment/check-creator-status?trans_id=55' \
+  --header 'Authorization: Bearer {token}'
+```

@@ -1,97 +1,94 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Doss Documentation"
+description: "The complete digital wallet and payment platform. Send money, manage deposits, exchange currencies, and process merchant payments — all in one place."
 ---
 
-## Setting up
-
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get your Doss instance running and make your first transaction in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="server" href="/installation">
+    Deploy Doss on your server with step-by-step installation guidance.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="API Reference" icon="code" href="/api/authentication">
+    Integrate Doss into your mobile or web app using the REST API.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Admin Guide" icon="shield" href="/admin/dashboard">
+    Manage users, fees, currencies, and platform settings.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What is Doss?
 
-Everything you need to create world-class documentation.
+Doss is a full-featured digital wallet and payment platform built on Laravel. It enables financial institutions, fintech companies, and businesses to offer their users a complete suite of payment services:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+- **Send & Receive Money** — Peer-to-peer transfers between registered users with real-time notifications
+- **Multi-Currency Wallets** — Support for fiat and cryptocurrency wallets with live exchange rates
+- **Deposits** — Accept funds via bank transfer, Stripe, PayPal, and CoinPayments (crypto)
+- **Withdrawals** — Configurable payout settings with multiple payment method support
+- **Merchant Payments** — QR code-based payments and merchant payment processing
+- **Invoicing** — Create, send, and collect payment on invoices
+- **Request Money** — Send payment requests with dispute resolution workflow
+- **KYC Verification** — Built-in identity and address proof verification
 
-## Need inspiration?
+## Platform Overview
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={3}>
+  <Card title="Digital Wallets" icon="wallet" href="/features/wallet">
+    Multi-currency wallets with real-time balance tracking
+  </Card>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Instant peer-to-peer transfers between users
+  </Card>
+  <Card title="Deposits" icon="arrow-down-to-line" href="/features/deposits">
+    Bank, Stripe, PayPal, and crypto deposit options
+  </Card>
+  <Card title="Withdrawals" icon="arrow-up-from-line" href="/features/withdrawals">
+    Flexible payout settings and withdrawal management
+  </Card>
+  <Card title="Currency Exchange" icon="arrow-right-arrow-left" href="/features/currency-exchange">
+    Exchange between currencies with configurable fees
+  </Card>
+  <Card title="Merchant Payments" icon="store" href="/features/merchant-payments">
+    QR code payments and merchant dashboard
+  </Card>
+</CardGroup>
+
+## For Administrators
+
+<CardGroup cols={2}>
+  <Card title="User Management" icon="users" href="/admin/user-management">
+    Manage customers, merchants, cashiers, and admin accounts
+  </Card>
+  <Card title="Fees & Limits" icon="sliders" href="/admin/fees-limits">
+    Configure transaction fees and limits per currency and payment method
+  </Card>
+  <Card title="Payment Methods" icon="credit-card" href="/admin/payment-methods">
+    Enable and configure payment gateways and bank options
+  </Card>
+  <Card title="Currency Management" icon="coins" href="/admin/currency-management">
+    Add currencies, set exchange rates, and manage crypto providers
+  </Card>
+</CardGroup>
+
+## Integrations
+
+Doss integrates with leading payment and communication providers out of the box.
+
+<CardGroup cols={3}>
+  <Card title="Stripe" icon="stripe" href="/integrations/stripe">
+    Card payment processing
+  </Card>
+  <Card title="PayPal" icon="paypal" href="/integrations/paypal">
+    PayPal deposit support
+  </Card>
+  <Card title="CoinPayments" icon="bitcoin" href="/integrations/coinpayments">
+    Cryptocurrency deposits
+  </Card>
+  <Card title="Twilio" icon="phone" href="/integrations/twilio">
+    SMS OTP verification
+  </Card>
+  <Card title="Firebase" icon="fire" href="/integrations/firebase">
+    Push notifications via FCM
+  </Card>
+</CardGroup>

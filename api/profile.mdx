@@ -1,0 +1,311 @@
+---
+title: "User Profile"
+description: "Retrieve and update user profile information, upload profile images, and change passwords."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+---
+
+## GET /get-user-profile
+
+Returns full profile details for the authenticated user, including address, timezone, wallet list, and available countries.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success.
+    </ResponseField>
+    <ResponseField name="user" type="object">
+      <Expandable title="user properties">
+        <ResponseField name="first_name" type="string">First name.</ResponseField>
+        <ResponseField name="last_name" type="string">Last name.</ResponseField>
+        <ResponseField name="email" type="string">Email address.</ResponseField>
+        <ResponseField name="phone" type="string">Raw phone number.</ResponseField>
+        <ResponseField name="formattedPhone" type="string">Phone in international format.</ResponseField>
+        <ResponseField name="carrierCode" type="string">Country dial code prefix.</ResponseField>
+        <ResponseField name="defaultCountry" type="string">ISO country code.</ResponseField>
+        <ResponseField name="address_1" type="string">Street address.</ResponseField>
+        <ResponseField name="city" type="string">City.</ResponseField>
+        <ResponseField name="state" type="string">State or province.</ResponseField>
+        <ResponseField name="country_id" type="number">ID of the user's country.</ResponseField>
+        <ResponseField name="timezone" type="string">PHP timezone string.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="countries" type="array">
+      List of all countries with `id` and `name`.
+    </ResponseField>
+    <ResponseField name="timezones" type="array">
+      List of PHP timezone strings.
+    </ResponseField>
+    <ResponseField name="wallets" type="array">
+      User's wallets. Each item has `id`, `currencyCode`, and `is_default`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-user-profile?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /update-user-profile
+
+Updates profile details including name, email, phone, address, timezone, and default wallet.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="first_name" type="string" required>
+  First name.
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  Last name.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Email address.
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Phone number. Spaces and hyphens are normalized.
+</ParamField>
+
+<ParamField body="formattedPhone" type="string">
+  Phone in international format (e.g. `+11234567890`).
+</ParamField>
+
+<ParamField body="user_defaultCountry" type="string">
+  ISO country code for the phone number.
+</ParamField>
+
+<ParamField body="user_carrierCode" type="string">
+  Dial code prefix (e.g. `+1`).
+</ParamField>
+
+<ParamField body="country" type="number">
+  Country ID from `/get-user-profile` countries list.
+</ParamField>
+
+<ParamField body="address" type="string">
+  Street address.
+</ParamField>
+
+<ParamField body="city" type="string">
+  City.
+</ParamField>
+
+<ParamField body="state" type="string">
+  State or province.
+</ParamField>
+
+<ParamField body="timezone" type="string">
+  PHP timezone string.
+</ParamField>
+
+<ParamField body="defaultWallet" type="number">
+  Wallet ID to set as default.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+    <ResponseField name="username" type="string">Updated full name.</ResponseField>
+    <ResponseField name="email" type="string">Updated email.</ResponseField>
+    <ResponseField name="formattedPhone" type="string">Updated phone, if set.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/update-user-profile \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "jane@example.com",
+    "timezone": "America/New_York"
+  }'
+```
+
+---
+
+## POST /profile-image-upload
+
+Uploads a profile picture. Accepted formats: `png`, `jpg`, `jpeg`, `gif`, `bmp`. The image is resized to 98×98 px (full) and 70×70 px (thumbnail).
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="file" type="file" required>
+  Image file (multipart/form-data).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on invalid format.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="filename" type="string">
+  The generated filename stored on the server.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/profile-image-upload \
+  --header 'Authorization: Bearer {token}' \
+  --form 'user_id=42' \
+  --form 'file=@/path/to/photo.jpg'
+```
+
+---
+
+## POST /update-password
+
+Changes the authenticated user's password.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="oldPassword" type="string" required>
+  Current password.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  New password.
+</ParamField>
+
+<ParamField body="passwordConfirmation" type="string" required>
+  New password confirmation. Must match `password`.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` if old password is incorrect.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/update-password \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "oldPassword": "current-secret",
+    "password": "new-secret",
+    "passwordConfirmation": "new-secret"
+  }'
+```
+
+---
+
+## POST /profile/duplicate-email-check
+
+Checks whether an email is already taken by another user, excluding the current user.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The current user's ID (excluded from the check).
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Email address to check.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the email is already taken by another user.
+</ResponseField>
+
+<ResponseField name="fail" type="string">
+  Error message when `status` is `true`.
+</ResponseField>
+
+<ResponseField name="success" type="string">
+  Success message when `status` is `false`.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/profile/duplicate-email-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "email": "other@example.com"}'
+```
+
+---
+
+## GET /get-user-specific-details
+
+Returns receiver or requester details based on a transaction reference. Used to show recipient info after a send or request-money action.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="type" type="string" required>
+  Context type. One of `sendMoney`, `requestMoneyCreate`, `requestMoneyAccept`.
+</ParamField>
+
+<ParamField query="tr_ref_id" type="number">
+  Transaction or request payment ID. Required when `type` is `sendMoney`, `requestMoneyCreate`, or `requestMoneyAccept`.
+</ParamField>
+
+<ParamField query="email" type="string">
+  Email address lookup. Used when `type` is not one of the above.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+    <ResponseField name="receiver" type="object">Receiver details (first_name, last_name, email, picture) for send/request money contexts.</ResponseField>
+    <ResponseField name="user" type="object">Creator details for the `requestMoneyAccept` context.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-user-specific-details?user_id=42&type=sendMoney&tr_ref_id=101' \
+  --header 'Authorization: Bearer {token}'
+```

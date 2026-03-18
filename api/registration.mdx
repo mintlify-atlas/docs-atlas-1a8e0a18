@@ -1,0 +1,199 @@
+---
+title: "Registration"
+description: "Create new user accounts and validate registration fields."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+---
+
+## GET /registration/get-default-country-short-name
+
+Returns the platform's default country short code. Useful for pre-selecting the country flag in registration forms.
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success.
+    </ResponseField>
+    <ResponseField name="defaultCountryShortName" type="string">
+      ISO 3166-1 alpha-2 country code in lowercase, e.g. `us`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url https://your-domain.com/api/registration/get-default-country-short-name
+```
+
+---
+
+## GET /check-merchant-user-role-existence
+
+Checks whether default merchant and user roles exist. Use this before showing the user-type selector in the registration form.
+
+### Response fields
+
+<ResponseField name="status" type="number">
+  `200` on success.
+</ResponseField>
+
+<ResponseField name="checkMerchantRole" type="object">
+  Object with `id` if a default merchant role exists; `null` otherwise.
+</ResponseField>
+
+<ResponseField name="checkUserRole" type="object">
+  Object with `id` if a default user role exists; `null` otherwise.
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url https://your-domain.com/api/check-merchant-user-role-existence
+```
+
+---
+
+## POST /registration/duplicate-email-check
+
+Verifies whether an email address is already registered.
+
+### Request parameters
+
+<ParamField body="email" type="string" required>
+  The email address to check.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the email is already taken, `false` if available.
+</ResponseField>
+
+<ResponseField name="fail" type="string">
+  Error message returned when `status` is `true`.
+</ResponseField>
+
+<ResponseField name="success" type="string">
+  Success message returned when `status` is `false`.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/registration/duplicate-email-check \
+  --header 'Content-Type: application/json' \
+  --data '{"email": "user@example.com"}'
+```
+
+---
+
+## POST /registration/duplicate-phone-number-check
+
+Verifies whether a phone number is already registered.
+
+### Request parameters
+
+<ParamField body="phone" type="string" required>
+  The phone number to check. Spaces and hyphens are stripped automatically.
+</ParamField>
+
+<ParamField body="id" type="number">
+  When provided, excludes this user ID from the uniqueness check (useful when editing an existing profile).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the phone is already taken, `false` if available.
+</ResponseField>
+
+<ResponseField name="fail" type="string">
+  Error message when `status` is `true`.
+</ResponseField>
+
+<ResponseField name="success" type="string">
+  Success message when `status` is `false`.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/registration/duplicate-phone-number-check \
+  --header 'Content-Type: application/json' \
+  --data '{"phone": "+11234567890"}'
+```
+
+---
+
+## POST /registration
+
+Creates a new user account. On success, creates a default wallet, assigns a role, generates a QR code, and — if email verification is enabled — sends a verification email.
+
+### Request parameters
+
+<ParamField body="first_name" type="string" required>
+  User's first name.
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  User's last name.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  A unique, valid email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The desired password.
+</ParamField>
+
+<ParamField body="fcm_last_login_device_token" type="string" required>
+  Firebase Cloud Messaging device token.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  User role type. Must match an available role returned by `/check-merchant-user-role-existence` (e.g. `user` or `merchant`).
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Phone number in international format. Must be unique across all users.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success, `401` on validation failure.
+    </ResponseField>
+    <ResponseField name="message" type="string">
+      `Registration Successfull!` or a description of the error.
+    </ResponseField>
+    <ResponseField name="reason" type="string">
+      `email_verification` when email verification has been triggered.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error responses
+
+| Status | Reason |
+|--------|--------|
+| `401` | Validation failed (e.g. duplicate email) |
+| `200` with `reason: email_verification` | Account created but email must be verified |
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/registration \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "email": "jane@example.com",
+    "password": "secret123",
+    "fcm_last_login_device_token": "device-token-abc123",
+    "type": "user",
+    "phone": "+11234567890"
+  }'
+```

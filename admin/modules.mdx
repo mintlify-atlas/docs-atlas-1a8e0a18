@@ -1,0 +1,152 @@
+---
+title: "Module Management"
+description: "Understanding the Doss modular architecture, installed modules, and enabling or disabling modules via the admin panel."
+sidebarTitle: "Module management"
+icon: "puzzle-piece"
+---
+
+Doss uses [nwidart/laravel-modules](https://nwidart.com/laravel-modules) to organise optional and pluggable features as self-contained modules. Each module lives under the `Modules/` directory and can be enabled or disabled independently without modifying the core application.
+
+## Module status file
+
+Module activation state is stored in `modules_statuses.json` at the root of the application:
+
+```json modules_statuses.json
+{
+    "Addons": true,
+    "BlockIo": true,
+    "Upgrader": true
+}
+```
+
+A value of `true` means the module is enabled and its service provider is registered at boot time. A value of `false` means the module exists on disk but is not loaded.
+
+## Installed modules
+
+The following modules ship with Doss:
+
+<AccordionGroup>
+  <Accordion title="Addons">
+    **Alias:** `addons` | **Core:** yes | **Version:** 1.0
+
+    The Addons module is the foundation for the platform's addon management system. It provides:
+
+    - `Addon` — extends `Nwidart\Modules\Facades\Module` to represent an individual addon
+    - `AddonManager` — handles addon upload, extraction, validation, migration, and seeding
+    - Helper functions used across the platform (`Entities/helper.php`)
+    - The service provider `AddonsServiceProvider`
+
+    This module is marked as `"core": true` and should always remain enabled.
+  </Accordion>
+  <Accordion title="BlockIo">
+    **Alias:** `blockio`
+
+    Provides Bitcoin, Litecoin, and Dogecoin wallet address generation and transaction processing via the Block.io API. When active and a new user is created, Doss automatically generates a crypto wallet address for that user via `generateUserBlockIoWalletAddress()`.
+
+    The module's status can be toggled from the Crypto providers page at `/admin/crypto-providers/BlockIo`.
+  </Accordion>
+  <Accordion title="Upgrader">
+    **Alias:** `upgrader`
+
+    Handles platform version upgrades. This module manages database migrations and data patches required when moving between Doss releases.
+  </Accordion>
+</AccordionGroup>
+
+## Module manager interface
+
+Navigate to **Module manager > Addons** (`/admin/module-manager/addons`). Required permission: `view_addon_manager`.
+
+This page renders the `admin.module_manager.addon` view, which lists all installed modules and their current enabled/disabled status.
+
+## Enabling and disabling modules
+
+Module activation is managed through the Addon admin routes:
+
+- **List addons** — `GET /admin/custom/addons`
+- **Toggle activation** — `GET /admin/custom/addon/activation/{status}/{id}`
+
+Where `{status}` is `enable` or `disable` and `{id}` is the module identifier. Toggling a module updates `modules_statuses.json` and takes effect on the next request.
+
+<Warning>
+  Disabling the `Addons` core module will break the addon management interface itself. Only disable non-core modules.
+</Warning>
+
+## Module structure
+
+Each module follows the standard `nwidart/laravel-modules` directory layout:
+
+```
+Modules/
+└── ExampleModule/
+    ├── Config/
+    │   └── config.php
+    ├── Entities/         # Eloquent models and helpers
+    ├── Http/
+    │   ├── Controllers/
+    │   └── Requests/
+    ├── Providers/
+    │   ├── ExampleModuleServiceProvider.php
+    │   └── RouteServiceProvider.php
+    ├── Resources/        # Views, assets, lang files
+    ├── Routes/
+    │   ├── api.php
+    │   └── web.php
+    ├── composer.json
+    └── module.json       # Module metadata
+```
+
+The `module.json` file is required and must contain at minimum a `name` and an `item_id` field. The `AddonManager` validates these fields before completing an upload.
+
+## Installing a new module (addon)
+
+<Steps>
+  <Step title="Prepare the addon ZIP">
+    The ZIP file must be named after the module and contain the expected directory structure. The following files are validated on upload:
+
+    - `Config/config.php`
+    - `Providers/{ModuleName}ServiceProvider.php`
+    - `Providers/RouteServiceProvider.php`
+    - `Routes/api.php`
+    - `Routes/web.php`
+    - `module.json`
+  </Step>
+  <Step title="Upload the ZIP">
+    Upload via the addon manager interface. `AddonManager::upload()` extracts the ZIP to a `temp/` directory, validates the structure, then copies the module into `Modules/`.
+  </Step>
+  <Step title="Run migrations and seeds">
+    After upload, `AddonManager::migrateAndSeed()` runs:
+
+    ```bash
+    php artisan module:migrate-rollback {ModuleName}
+    php artisan module:migrate {ModuleName}
+    php artisan module:seed {ModuleName}
+    ```
+  </Step>
+  <Step title="Enable the module">
+    Toggle the module to `enabled` from the addon manager interface. The module's service provider is registered and its routes become active on the next request.
+  </Step>
+</Steps>
+
+<Note>
+  The server must have the PHP `ZipArchive` extension installed for addon uploads to work. If it is missing, `AddonManager::upload()` returns an error before attempting extraction.
+</Note>
+
+## How modules extend platform functionality
+
+Modules integrate with the Doss core through Laravel's standard extension points:
+
+- **Service providers** — register routes, views, migrations, and event listeners
+- **Routes** — module web and API routes are loaded by the module's `RouteServiceProvider`
+- **Views** — modules can publish views namespaced under the module alias (for example, `blockio::admin.crypto_provider.blockio`)
+- **Migrations** — database tables introduced by a module are managed independently via `module:migrate`
+- **Helper files** — the Addons module loads `Entities/helper.php` as a global file, making its functions available platform-wide
+
+The core application checks whether a module is active using the `isActive()` helper before executing module-dependent logic:
+
+```php
+if (isActive('BlockIo') && CryptoProvider::getStatus('BlockIo') == 'Active') {
+    // BlockIo-specific code
+}
+```
+
+Similarly, `moduleExistChecker()` is called before deactivating or deleting a currency to prevent breaking active module integrations.

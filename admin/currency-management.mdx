@@ -1,0 +1,158 @@
+---
+title: "Currency Management"
+description: "Adding fiat and crypto currencies, managing exchange rates, enabling wallet creation, and configuring crypto providers in Doss."
+sidebarTitle: "Currency management"
+icon: "coins"
+---
+
+Currencies are the foundation of the Doss financial system. Every wallet, transaction, fee rule, and payment method setting is tied to a currency record. Doss supports two currency types: **fiat** and **crypto**.
+
+## Viewing currencies
+
+Navigate to **Settings > Currencies** (`/admin/settings/currency`). The list shows all currencies with their type, code, symbol, exchange rate, logo, status, and the crypto provider linked to each crypto currency (if any).
+
+Required permission: `view_currency`
+
+## Currency data model
+
+Currencies are stored in the `currencies` table with the following key fields:
+
+```php Currency model fillable fields
+type          // 'fiat' | 'crypto'
+name          // display name (e.g. 'US Dollar')
+code          // ISO code (e.g. 'USD', 'BTC')
+symbol        // display symbol (e.g. '$', '₿')
+rate          // exchange rate relative to the default currency (fiat only)
+logo          // filename of the currency logo (64×64 px)
+status        // 'Active' | 'Inactive'
+default       // 1 if this is the platform default currency, 0 otherwise
+exchange_from // source currency for rate calculation
+address       // wallet address (crypto only)
+```
+
+## Adding a currency
+
+Navigate to `/admin/settings/add_currency`. Required permission: `add_currency`.
+
+<Tabs>
+  <Tab title="Fiat currency">
+    <Steps>
+      <Step title="Select fiat as the type">
+        Set **Type** to `fiat`.
+      </Step>
+      <Step title="Fill in the required fields">
+        - Name, code, symbol (all required)
+        - Exchange rate — must be a number greater than 0.0001
+        - Exchange from — the base currency for rate calculation (required for fiat)
+        - Status (`Active` or `Inactive`)
+        - Logo — optional image, resized to 64×64 px on upload
+      </Step>
+      <Step title="Submit">
+        POST to `/admin/settings/add_currency`. The system checks for a duplicate `(code, type)` pair before saving.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Crypto currency">
+    <Steps>
+      <Step title="Select crypto as the type">
+        Set **Type** to `crypto`.
+      </Step>
+      <Step title="Fill in the required fields">
+        - Name, code, symbol (all required)
+        - Address — the receiving wallet address (required for crypto)
+        - Status (`Active` or `Inactive`)
+        - Logo — optional
+      </Step>
+      <Step title="Submit">
+        The `rate` field is stored as `0` for crypto currencies because rates are handled by the crypto provider rather than a static value.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Editing a currency
+
+Navigate to `/admin/settings/edit_currency/{id}`. Required permission: `edit_currency`.
+
+All fields can be updated with the following restrictions:
+
+- The default currency's exchange rate must remain `1`. Attempting to change it raises an error.
+- A currency with active module usage (for example, a BlockIo-linked currency) cannot be set to `Inactive`.
+- The default currency's status is always forced to `Active` and its `default` flag stays `1`.
+
+## Setting exchange rates
+
+Exchange rates for fiat currencies are set manually via the **Rate** field when adding or editing a currency. The rate is relative to the platform's default currency.
+
+For automatic rate updates, configure the currency conversion rate API at **Settings > Currency conversion rate API** (`/admin/settings/currency-conversion-rate-api`). When active, this API periodically refreshes the `rate` field for all fiat currencies.
+
+<Info>
+  Crypto currency rates are not stored statically. Rates are fetched at transaction time from the configured crypto provider.
+</Info>
+
+## Wallet creation for currencies
+
+When editing an existing currency, you can enable the **Create wallet** option. When checked, Doss automatically creates wallets for all currently active users who do not already have a wallet in that currency.
+
+This is handled by `CurrencyController::createUsersWallet()`, which iterates active users and inserts `Wallet` records where none exist.
+
+```php
+// Example: wallet creation during currency update
+if ($request->create_wallet == 'on') {
+    $this->createUsersWallet($currency->id);
+    $currency->allowed_wallet_creation = 'Yes';
+}
+```
+
+## Enabling and disabling currencies
+
+Set the **Status** field to `Active` or `Inactive` when creating or editing. Inactive currencies are hidden from user-facing features but their historical data is preserved.
+
+<Warning>
+  You cannot deactivate a currency that is in use by an active module (such as BlockIo). You also cannot delete the default currency or any currency that has existing transactions.
+</Warning>
+
+## Deleting a currency
+
+Navigate to `/admin/settings/delete_currency/{id}`. Required permission: `delete_currency`.
+
+A currency cannot be deleted if:
+- It is the default currency (`default = 1`)
+- It has any existing transactions (`Transaction` records with `currency_id`)
+- It is referenced by an active module
+
+When deletion succeeds, the logo file is removed from `public/uploads/currency_logos/`.
+
+## Currency logo management
+
+- **Upload** — include a `logo` file in the add or edit form. Accepted formats follow `getFileExtensions(3)`. The image is resized to 64×64 px.
+- **Delete logo only** — POST to `/admin/settings/currency/delete-currency-logo` with the `currency_id` and `logo` filename. The logo column is set to `null` and the file is deleted from disk.
+
+## Crypto provider settings
+
+Crypto currencies can be linked to a crypto payment provider (such as BlockIo or CoinPayments). The relationship is stored via `CryptoAssetSetting`, which maps a currency to a `CryptoProvider` record.
+
+To configure crypto providers, navigate to **Crypto providers** (`/admin/crypto-providers/{provider}`). Required permission: `view_crypto_provider`.
+
+From this page you can:
+- View all currencies linked to the provider and their network settings
+- Enable or disable the provider by toggling its status (`POST /admin/crypto-provider/{provider}/status-change`)
+
+Required permission to change status: `edit_crypto_provider`
+
+<Note>
+  The crypto provider list is populated from the `crypto_providers` table. Each provider has an `alias` that matches the Laravel module name (for example, `BlockIo` maps to the `BlockIo` module).
+</Note>
+
+## Currency relationships
+
+Each currency participates in the following relationships used across the platform:
+
+| Relationship | Model | Description |
+|-------------|-------|-------------|
+| `fees_limit` | `FeesLimit` | Fee and limit rules per transaction type |
+| `currency_payment_method` | `CurrencyPaymentMethod` | Payment gateway credentials |
+| `bank` | `Bank` | Bank accounts for bank transfer |
+| `cryptoAssetSetting` | `CryptoAssetSetting` | Linked crypto provider and network config |
+| `wallet` | `Wallet` | User wallets denominated in this currency |
+| `transaction` | `Transaction` | All transactions in this currency |

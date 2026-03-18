@@ -1,80 +1,131 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Get up and running with Doss — from account creation to your first transaction."
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide walks you through the core Doss user journey: registering an account, verifying your identity, setting up your wallet, and making your first transfer.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  If you're looking to deploy Doss on your own server, see the [Installation guide](/installation) first.
 </Note>
+
+## Prerequisites
+
+- A running Doss instance (see [Installation](/installation))
+- A valid email address and phone number for registration
+
+## Your first steps
+
+<Steps>
+  <Step title="Create your account">
+    Navigate to `/register` on your Doss instance. Fill in your details:
+    - First and last name
+    - Email address
+    - Phone number (with country code)
+    - Password
+
+    After submitting, you'll receive a phone verification code via SMS. Enter the code to verify your number and activate your account.
+
+    <Tip>
+      Phone verification is powered by Twilio. Make sure the Twilio integration is configured before users can register.
+    </Tip>
+  </Step>
+
+  <Step title="Log in and set up two-factor authentication">
+    Log in at `/login` with your email and password. For enhanced security, set up two-factor authentication immediately:
+
+    1. Go to **Profile** → **Security Settings**
+    2. Choose between **SMS OTP** or **Google Authenticator**
+    3. Follow the prompts to enable your preferred method
+
+    After enabling 2FA, every login will require you to verify with a one-time code.
+
+    <Note>
+      If Google Authenticator is enabled, save your backup codes in a secure location. These are the only way to recover your account if you lose your phone.
+    </Note>
+  </Step>
+
+  <Step title="Complete KYC verification">
+    To unlock full transaction capabilities, verify your identity:
+
+    1. Go to **Profile** → **Verify Identity**
+    2. Upload a government-issued ID (passport, driving licence, or national ID)
+    3. Go to **Profile** → **Verify Address**
+    4. Upload a proof of address document
+
+    Your documents will be reviewed by an admin. You'll receive a notification once approved. Most verifications are processed within 24 hours.
+  </Step>
+
+  <Step title="View your wallet">
+    After registration, Doss automatically creates a wallet for you in the platform's default currency.
+
+    Navigate to **Wallet** in the sidebar to:
+    - View your current balance
+    - See your wallet address or QR code for receiving payments
+    - Request additional currency wallets if the admin has enabled multiple currencies
+  </Step>
+
+  <Step title="Fund your wallet with a deposit">
+    Before you can send money, you'll need a positive balance. Go to **Deposit** and choose a method:
+
+    <Tabs>
+      <Tab title="Bank Transfer">
+        1. Select **Bank** as your deposit method
+        2. Choose your currency
+        3. Enter the amount you want to deposit
+        4. Follow the bank transfer instructions displayed
+        5. Your deposit will be credited once an admin approves it
+      </Tab>
+      <Tab title="Stripe (Card)">
+        1. Select **Stripe** as your deposit method
+        2. Enter your card details
+        3. Confirm the payment
+        4. Funds appear in your wallet immediately upon successful charge
+      </Tab>
+      <Tab title="PayPal">
+        1. Select **PayPal** as your deposit method
+        2. You'll be redirected to PayPal to complete payment
+        3. After authorising, return to Doss
+        4. Funds are credited once PayPal confirms the transaction
+      </Tab>
+      <Tab title="Crypto (CoinPayments)">
+        1. Select **CoinPayments** as your deposit method
+        2. Choose the cryptocurrency you want to deposit
+        3. Send the exact amount to the displayed wallet address
+        4. CoinPayments will notify Doss via IPN once confirmed on-chain
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Send your first transfer">
+    Once your wallet is funded, send money to another user:
+
+    1. Go to **Send Money** in the sidebar
+    2. Enter the recipient's **email address** or **phone number**
+    3. Select the currency and enter the amount
+    4. Review the transaction summary including fees
+    5. Enter your transaction PIN or OTP to confirm
+    6. The transfer is instant — both you and the recipient receive a notification
+
+    <Tip>
+      Transaction fees are set by your platform administrator. Review the fee summary before confirming to avoid surprises.
+    </Tip>
+  </Step>
+</Steps>
+
+## What's next?
+
+<CardGroup cols={2}>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    Learn about multi-currency wallets and balance management
+  </Card>
+  <Card title="Deposits" icon="arrow-down-to-line" href="/features/deposits">
+    All available deposit methods and how they work
+  </Card>
+  <Card title="Request Money" icon="hand" href="/features/request-money">
+    Send payment requests to other users
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/authentication">
+    Integrate Doss into your mobile or web application
+  </Card>
+</CardGroup>

@@ -1,0 +1,179 @@
+---
+title: "User Management"
+description: "Managing regular users, Doss users, merchants, and admin accounts in the Doss admin panel."
+sidebarTitle: "User management"
+icon: "users"
+---
+
+Doss separates accounts into four distinct types: regular users (`type = user`), Doss users (`type = doss`), merchants (`type = merchant`), and admin accounts. Each type has its own list view, creation flow, and export options.
+
+## User lists
+
+<Tabs>
+  <Tab title="Regular users">
+    Navigate to **Users > Users** (`/admin/users`). The list is paginated at 10 records per page and supports filtering by status and full-text search across UUID, full name, formatted phone number, and email address.
+
+    Required permission: `view_user`
+  </Tab>
+  <Tab title="Doss users">
+    Navigate to **Users > Doss users** (`/admin/doss-users`). This view shows only accounts with `type = doss`. It uses the same DataTable structure as the regular user list.
+
+    Required permission: `view_user`
+  </Tab>
+  <Tab title="Merchants">
+    Navigate to **Users > Merchants** (`/admin/merchants`). Accounts with `type = merchant` are shown here, along with their associated cashiers and managers.
+
+    Required permission: `view_merchant`
+  </Tab>
+  <Tab title="Admin users">
+    Navigate to **Users > Admin users** (`/admin/admin_users`). Lists all admin-type accounts that can access the panel.
+
+    Required permission: `view_admins`
+  </Tab>
+</Tabs>
+
+## Creating users
+
+<Tabs>
+  <Tab title="Regular user">
+    <Steps>
+      <Step title="Open the creation form">
+        Go to `/admin/users/create`. Required permission: `add_user`.
+      </Step>
+      <Step title="Fill in the required fields">
+        - First name and last name (letters and spaces only, max 30 characters each)
+        - Email address (must be unique)
+        - Phone number (must be unique)
+        - Password (minimum 6 characters, with confirmation)
+        - Status (`Active` or `Inactive`)
+      </Step>
+      <Step title="Submit">
+        On success, the system creates the user record, assigns the selected role via `RoleUser`, creates a `UserDetail` record, provisions the default currency wallet, and generates a QR code. If email verification is enabled in preferences, a verification email is sent automatically.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Doss user">
+    <Steps>
+      <Step title="Open the Doss creation form">
+        Go to `/admin/users/doss_create`. Required permission: `add_user`.
+      </Step>
+      <Step title="Fill in the fields">
+        Same required fields as a regular user. The role dropdown is pre-filtered to show only roles with `name = Doss`.
+      </Step>
+      <Step title="Submit">
+        POST to `/admin/users/doss_store`. The account is created with `type = doss`.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Admin user">
+    <Steps>
+      <Step title="Open the admin creation form">
+        Go to `/admin/admin-user/create`. Required permission: `add_admin`.
+      </Step>
+      <Step title="Fill in the fields">
+        Provide name, email, password, and assign an admin role.
+      </Step>
+      <Step title="Submit">
+        POST to `/admin/admin-users/store`.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Editing user profiles
+
+Go to `/admin/users/edit/{id}` (required permission: `edit_user`) or `/admin/doss_users/edit/{id}` for Doss accounts. You can update profile fields, change status, and reassign roles.
+
+For Doss users, a dedicated update route (`POST /admin/users/doss_update`) handles the submission separately from regular user updates.
+
+## Approving users
+
+If a user has submitted identity documents (ID proof front/back, passport front/back, driving licence front/back), they appear in the **App user verification** list at `/admin/app_user_verification`.
+
+To approve a user, navigate to `/admin/approve/{id}`. This sets `varified_user = 1` on the user record.
+
+## KYC document review
+
+KYC verification is split into two independent document types:
+
+<Columns cols={2}>
+  <Card title="Identity proofs" icon="id-card">
+    Navigate to `/admin/identity-proofs`. Review submitted identity documents, then approve or reject each submission at `/admin/identity-proofs/edit/{id}`.
+
+    Required permission: `view_identity_verfication` / `edit_identity_verfication`
+  </Card>
+  <Card title="Address proofs" icon="house">
+    Navigate to `/admin/address-proofs`. Review address documents, then approve or reject each submission at `/admin/address-proofs/edit/{id}`.
+
+    Required permission: `view_address_verfication` / `edit_address_verfication`
+  </Card>
+</Columns>
+
+Both lists support CSV and PDF export.
+
+## Admin deposits and withdrawals for users
+
+Admins can perform deposits and withdrawals on behalf of users directly from the panel:
+
+- **Deposit for user** — `/admin/users/deposit/create/{id}`
+- **Withdraw for user** — `/admin/users/withdraw/create/{id}`
+- **Doss user fund top-up** — `POST /admin/add/fund/doss`
+
+Both actions run an amount and fees/limits check before saving the transaction.
+
+## User alerts
+
+Custom alerts can be created and broadcast to users:
+
+<Steps>
+  <Step title="View existing alerts">
+    Go to `/admin/view/alerts`.
+  </Step>
+  <Step title="Create an alert">
+    Go to `/admin/create/alerts`, fill in the alert content, and POST to `/admin/save-custom-alerts`.
+  </Step>
+  <Step title="Edit or delete">
+    Edit at `/admin/edit/alert/{id}` (POST to `/admin/update-custom-alerts`). Delete at `/admin/custom/alerts/delete/{id}`.
+  </Step>
+  <Step title="Finalize">
+    Go to `/admin/custom/alerts/finalize/{id}` to publish the alert to users.
+  </Step>
+</Steps>
+
+Alerts can be exported as CSV (`/admin/admin-alert-users-export`) or PDF (`/admin/admin-alert-pdf-export`).
+
+## Exporting user data
+
+All user list views support export in two formats:
+
+| User type | CSV | PDF |
+|-----------|-----|-----|
+| Regular users | `/admin/users/csv` | `/admin/users/pdf` |
+| Merchant users | `/admin/merchant_users/csv` | `/admin/merchant_users/pdf` |
+| Doss users | `/admin/doss-users/csv` | `/admin/doss-users/pdf` |
+| Admin users | `/admin/admin-users/csv` | `/admin/admin-users/pdf` |
+
+PDF exports support date range filtering via `startfrom` and `endto` query parameters.
+
+## Role assignment
+
+Roles are managed separately from user accounts:
+
+- **Admin roles** — `/admin/settings/roles` (permission: `view_role`)
+- **User roles** — `/admin/settings/user_role` (permission: `view_group`)
+- **Merchant groups** — `/admin/settings/merchant-group` (permission: `view_merchant_group`)
+
+Each role record has a `display_name`, a `user_type`, and a set of granular permissions. When you create a user, the selected role ID is written to the `role_users` table via `RoleUser::insert`.
+
+<Note>
+  The `permission` middleware gate enforces role-based access on every admin route. A user without the required permission will be blocked from that route even if they are authenticated.
+</Note>
+
+## Per-user data views
+
+From a user's record you can access:
+
+- Transaction history — `/admin/users/transactions/{id}`
+- Wallet balances — `/admin/users/wallets/{id}`
+- Support tickets — `/admin/users/tickets/{id}`
+- Disputes — `/admin/users/disputes/{id}`

@@ -1,0 +1,95 @@
+---
+title: 'Twilio Integration'
+description: 'Send SMS one-time passwords for two-factor authentication and phone verification using Twilio.'
+keywords: ['twilio', 'sms', 'otp', '2fa', 'phone verification']
+---
+
+Doss uses Twilio to send SMS one-time passwords (OTPs) for phone number verification during registration and for two-factor authentication on login. The integration uses `twilio/sdk ^6.44` via the Guzzle HTTP client calling the Twilio Messages API directly.
+
+## What Twilio is used for
+
+- **Registration phone verification** — When a new user registers, a 4-digit OTP is dispatched to their formatted phone number via the `SendOtpCode` job.
+- **Login 2FA** — When an existing user logs in and 2FA is enabled, an OTP is sent via `SendOtpCode`.
+- **Profile phone updates** — When a user changes their phone number, `NewSendOtpCode` is dispatched. This job also updates the `phone`, `formattedPhone`, and `uuid` fields on the user record once the SMS is sent.
+
+## Prerequisites
+
+- A [Twilio account](https://www.twilio.com/try-twilio)
+- A Twilio phone number capable of sending SMS
+- Your **Account SID** and **Auth Token** from the [Twilio Console](https://console.twilio.com)
+
+## Configuration
+
+<Steps>
+  <Step title="Get your Twilio credentials">
+    Log in to the Twilio Console. Your **Account SID** and **Auth Token** are displayed on the dashboard. Copy both values.
+  </Step>
+
+  <Step title="Purchase or configure a Twilio phone number">
+    Under **Phone Numbers → Manage → Active Numbers**, confirm you have a number with SMS capability. This number is used as the `From` address for all OTP messages.
+  </Step>
+
+  <Step title="Update the job configuration">
+    The Account SID, Auth Token, and sender phone number are currently hardcoded in the `SendOtpCode` and `NewSendOtpCode` jobs:
+
+    ```php app/Jobs/SendOtpCode.php
+    $Twilio_phone = '+13236120101';
+    $AccountSID   = 'AC8a0a9a5fbbbd1aea0882887fca75baa3';
+    $auth_token   = '4bf51ab353839bacb62627c7aca7173e';
+    ```
+
+    Replace these values with your own credentials. For production deployments, move them to environment variables in `.env` and reference them via `config()` or `env()` instead of hardcoding.
+  </Step>
+
+  <Step title="Verify a test SMS">
+    Trigger a registration or login flow to confirm that an OTP is delivered to the target phone number. Check the Twilio Console **Logs → Messaging** if the message does not arrive.
+  </Step>
+</Steps>
+
+## How OTP sending works
+
+Both jobs generate a 4-digit OTP using:
+
+```php
+$otp = str_pad(rand(1000, 9999), 4, '0', STR_PAD_LEFT);
+```
+
+The message body is:
+
+```
+Hi, Your Zing Cashless otp code is: {otp} hash is: SH3J8t2dX0A
+```
+
+The OTP is sent via a `POST` request to:
+
+```
+https://api.twilio.com/2010-04-01/Accounts/{AccountSID}/Messages.json
+```
+
+Authentication uses HTTP Basic Auth with the Account SID as the username and the Auth Token as the password (Base64-encoded).
+
+After a successful API call:
+
+- `SendOtpCode` updates `users.otp` for the user matched by `formattedPhone`.
+- `NewSendOtpCode` updates `users.otp`, `users.uuid`, `users.phone`, and `users.formattedPhone` for the user matched by `id`.
+
+Both jobs implement `ShouldQueue`, so OTP messages are dispatched asynchronously via the Laravel queue. Ensure your queue worker is running.
+
+## Dispatch locations
+
+| Job | Dispatched from | Trigger |
+|-----|-----------------|---------|
+| `SendOtpCode` | `RegisterController` | New user registration |
+| `SendOtpCode` | `LoginController` | Login 2FA |
+| `SendOtpCode` | `NewRegistrationController` | API v2 registration |
+| `SendOtpCode` | `CustomerController` (doss) | Phone verification |
+| `NewSendOtpCode` | `NewLoginController` (API v2) | Login with phone |
+| `NewSendOtpCode` | `RegisterController` (doss) | Doss app registration |
+| `NewSendOtpCode` | `CashierLoginController` | Cashier login OTP |
+
+## SMS delivery considerations
+
+- **Phone number format** — The `formattedPhone` field must be in E.164 format (e.g. `+13236120101`). The application uses `giggsey/libphonenumber-for-php` elsewhere to format numbers. Ensure phone numbers are stored in E.164 format before dispatching an OTP.
+- **Twilio free trial** — Free trial accounts can only send SMS to verified numbers. Upgrade to a paid account for unrestricted delivery.
+- **Queue worker** — Because both jobs use `ShouldQueue`, OTPs are only sent when the queue worker is processing jobs. Run `php artisan queue:work` or configure a process manager such as Supervisor.
+- **Job failures** — Both jobs throw `RegistrationException` on Guzzle request errors. Failed jobs are retried according to your queue configuration. Check the `failed_jobs` table if users report not receiving OTPs.

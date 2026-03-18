@@ -1,0 +1,136 @@
+---
+title: "Withdrawals"
+description: "Request a payout from your Doss wallet to a bank account, PayPal, or cryptocurrency address."
+---
+
+## Overview
+
+Withdrawals let you move funds from your Doss wallet to an external account. Before you can withdraw, you must configure at least one **payout setting** — a saved destination account. Withdrawal requests are created with `Pending` status and require administrator review before funds are released.
+
+## Setting up payout destinations
+
+Payout settings are managed at **Payouts > Payout Settings**. You can add multiple destinations across different payment methods.
+
+<Tabs>
+  <Tab title="Bank account">
+    <Steps>
+      <Step title="Go to Payout Settings">
+        Navigate to **Payouts > Payout Settings** and select **Bank** as the payment method.
+      </Step>
+      <Step title="Enter bank details">
+        Fill in:
+        - Account holder name
+        - Account number
+        - Bank name
+        - Branch address
+      </Step>
+      <Step title="Save">
+        The bank payout setting is saved and available for future withdrawal requests.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="PayPal">
+    <Steps>
+      <Step title="Go to Payout Settings">
+        Navigate to **Payouts > Payout Settings** and select **Paypal** as the payment method.
+      </Step>
+      <Step title="Enter your PayPal email">
+        Enter the email address associated with your PayPal account. Duplicate emails are rejected.
+      </Step>
+      <Step title="Save">
+        The PayPal payout setting is saved and ready to use.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Crypto address">
+    <Steps>
+      <Step title="Go to Payout Settings">
+        Navigate to **Payouts > Payout Settings** and select **Crypto** as the payment method.
+      </Step>
+      <Step title="Select currency and enter address">
+        Choose the cryptocurrency and enter the destination wallet address. Duplicate addresses are rejected.
+      </Step>
+      <Step title="Save">
+        The crypto payout setting is saved and linked to the selected currency.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+<Note>
+You can update or delete any payout setting from the Payout Settings page. Deleting a setting does not affect completed withdrawals.
+</Note>
+
+## Requesting a withdrawal
+
+<Steps>
+  <Step title="Go to Payouts">
+    Navigate to **Payouts** from the main menu. Your existing withdrawal history is shown here.
+  </Step>
+  <Step title="Start a new withdrawal">
+    Click **New Withdrawal**. Select the payout destination you configured and the currency/wallet to withdraw from.
+  </Step>
+  <Step title="Enter the amount">
+    Enter the withdrawal amount. The fee breakdown is shown:
+
+    - **Percentage fee** — `amount × (charge_percentage ÷ 100)`
+    - **Fixed fee** — `charge_fixed`
+    - **Total deducted** — `amount + total_fees`
+    - **Net received** — `amount - (percentage_fee + fixed_fee)`
+
+    The system verifies that your wallet balance covers the total amount.
+  </Step>
+  <Step title="Review and confirm">
+    The confirmation screen displays your payout destination, the net amount you will receive, and the fees. Confirm to submit the request.
+  </Step>
+  <Step title="Request submitted">
+    The withdrawal is created with `Pending` status. Your wallet balance is debited immediately. An email notification is sent to the administrator.
+  </Step>
+</Steps>
+
+## Withdrawal approval flow
+
+Withdrawals follow a manual review process:
+
+1. **Pending** — you have submitted the request; funds have been reserved from your wallet.
+2. **Success** — the administrator has approved and processed the payout. The wallet deduction stands.
+3. **Blocked** — the administrator has rejected the request. Your wallet balance is restored.
+
+<Warning>
+Your wallet is debited at the time you submit the withdrawal request. If the request is blocked, the full amount (including fees) is returned to your wallet.
+</Warning>
+
+You receive an email and/or SMS notification whenever the status of your withdrawal changes.
+
+## Withdrawal details stored
+
+For each withdrawal, the system creates a `WithdrawalDetail` record containing the specific payout information:
+
+| Method | Details stored |
+|---|---|
+| Bank | Account name, account number (masked), bank name, branch address, SWIFT code, country |
+| PayPal | PayPal email address |
+| Crypto | Destination crypto address |
+
+## Transaction limits
+
+Minimum and maximum withdrawal amounts are configured per currency and per payment method by the administrator. Requests outside these limits are rejected before submission.
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Deposits" icon="arrow-down-to-line" href="/features/deposits">
+    Add funds to your wallet before withdrawing.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View your current balance and transaction history.
+  </Card>
+  <Card title="Currency Exchange" icon="arrow-right-arrow-left" href="/features/currency-exchange">
+    Convert between currencies before withdrawing.
+  </Card>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Send funds to another Doss user instead of withdrawing.
+  </Card>
+</CardGroup>

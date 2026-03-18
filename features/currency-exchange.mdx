@@ -1,0 +1,107 @@
+---
+title: "Currency Exchange"
+description: "Swap funds between supported fiat currencies in your Doss wallets at live or locally configured exchange rates."
+---
+
+## Overview
+
+Currency Exchange lets you convert a balance from one of your fiat currency wallets to another. The source wallet is debited, the destination wallet is credited at the calculated exchange rate, and both an `Exchange From` and an `Exchange To` transaction record are created.
+
+<Note>
+Only **fiat** currency wallets are supported for currency exchange. Crypto wallets use a separate crypto exchange flow.
+</Note>
+
+## How exchange rates are determined
+
+The system supports two rate sources, configured per destination currency:
+
+| Source | Behaviour |
+|---|---|
+| `api` | Live rate fetched from the configured exchange rate API for the currency pair |
+| `local` | Rate calculated from the currency `rate` values stored in the database |
+
+If the API is enabled and the source currency is `api`, the live rate is used. If the API call fails, the system falls back to the local rate automatically.
+
+The exchange rate is locked at the time you reach the confirmation screen and stored as `destination_exchange_rate` in the session.
+
+## How to perform an exchange
+
+<Steps>
+  <Step title="Go to Exchange">
+    Navigate to **Exchange** from the main menu. The form shows all your fiat wallets that have an active `Exchange From` fees configuration.
+  </Step>
+  <Step title="Select the source wallet">
+    Choose the currency wallet you want to exchange **from**. Your current balance is displayed.
+  </Step>
+  <Step title="Select the destination currency">
+    Select the currency you want to exchange **to**. The list shows all active fiat currencies with an active exchange configuration, excluding the source currency.
+
+    The live exchange rate and the equivalent amount in the destination currency are shown immediately.
+  </Step>
+  <Step title="Enter the amount">
+    Enter the amount to exchange from the source currency. The system shows:
+    - Exchange rate
+    - Equivalent amount in the destination currency
+    - Fees (percentage + fixed)
+    - Total deducted from the source wallet (`amount + fees`)
+  </Step>
+  <Step title="Review on the confirmation screen">
+    The confirmation screen displays the full breakdown. Review the amounts and rate before proceeding.
+  </Step>
+  <Step title="Enter OTP">
+    An OTP is sent to your registered phone number. Enter the code to authorize the exchange.
+  </Step>
+  <Step title="Exchange complete">
+    The source wallet is debited (`amount + fees`) and the destination wallet is credited (`amount × exchange_rate`).
+
+    If a destination wallet does not exist yet for the target currency, one is created automatically.
+  </Step>
+</Steps>
+
+## Fee structure
+
+Fees are applied to the **source currency** amount based on the `Exchange From` fees configuration:
+
+```
+percentage_fee = amount × (charge_percentage ÷ 100)
+total_fees     = percentage_fee + charge_fixed
+total_deducted = amount + total_fees
+```
+
+The destination wallet receives `amount × exchange_rate`. Fees do not reduce the destination amount.
+
+## Transaction records
+
+A successful exchange creates two transaction entries:
+
+| Record | Type | User | Amount |
+|---|---|---|---|
+| Exchange From | `Exchange_From` | Your account | `-(amount + fees)` |
+| Exchange To | `Exchange_To` | Your account | `+(amount × rate)` |
+
+Both records reference the same `CurrencyExchange` entry via `transaction_reference_id`.
+
+## Transaction limits
+
+Minimum and maximum exchange amounts are set per source currency by the administrator. If the amount is outside the configured range, the exchange is blocked before you reach the confirmation screen.
+
+<Tip>
+The balance check compares `amount + fees` against your source wallet balance. If total deducted exceeds your balance, the exchange is blocked with an insufficient funds error.
+</Tip>
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View balances across all your currency wallets.
+  </Card>
+  <Card title="Deposits" icon="arrow-down-to-line" href="/features/deposits">
+    Fund a wallet before exchanging.
+  </Card>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Transfer the exchanged funds to another user.
+  </Card>
+  <Card title="Withdrawals" icon="arrow-up-from-line" href="/features/withdrawals">
+    Withdraw the exchanged balance to an external account.
+  </Card>
+</CardGroup>

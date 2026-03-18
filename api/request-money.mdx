@@ -1,0 +1,386 @@
+---
+title: "Request Money API"
+description: "Create, accept, and cancel money requests between users."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Flow overview
+
+<Steps>
+  <Step title="Validate the payer">
+    Call `POST /request-money-email-check` or `POST /request-money-phone-check`.
+  </Step>
+  <Step title="Select a currency">
+    Call `GET /get-request-currency` to list eligible currencies.
+  </Step>
+  <Step title="Create the request">
+    Call `POST /request-money-pay`.
+  </Step>
+  <Step title="Payer accepts or cancels">
+    The payer calls `POST /accept-request-payment-pay` to accept, or either party calls `POST /cancel-request` to cancel.
+  </Step>
+</Steps>
+
+---
+
+## POST /request-money-email-check
+
+Validates the payer's email before creating a request.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated requester's ID.
+</ParamField>
+
+<ParamField body="receiverEmail" type="string" required>
+  Email of the user who will pay.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="reason" type="string">Error reason: `own-email`, `suspended`, or `inactive`.</ResponseField>
+    <ResponseField name="message" type="string">Error description.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/request-money-email-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "receiverEmail": "payer@example.com"}'
+```
+
+---
+
+## POST /request-money-phone-check
+
+Validates the payer's phone number before creating a request.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated requester's ID. Must have a phone number set.
+</ParamField>
+
+<ParamField body="receiverPhone" type="string" required>
+  Phone number of the user who will pay (international format).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure, `404` if requester has no phone.</ResponseField>
+    <ResponseField name="reason" type="string">Error reason: `own-phone`, `suspended`, or `inactive`.</ResponseField>
+    <ResponseField name="message" type="string">Error description.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/request-money-phone-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "receiverPhone": "+11234567890"}'
+```
+
+---
+
+## GET /get-request-currency
+
+Returns currencies that can be used in a money request, filtered by active fee/limit rules.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="currencies" type="object">Key-value map of currency_id to currency info (id, code, symbol, type).</ResponseField>
+    <ResponseField name="defaultWalletCurrencyId" type="number">Currency ID of the user's default wallet.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-request-currency?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /request-money-pay
+
+Creates a money request. The payer receives a notification by email or SMS.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated requester's ID.
+</ParamField>
+
+<ParamField body="emailOrPhone" type="string" required>
+  Email or phone number of the payer.
+</ParamField>
+
+<ParamField body="currencyId" type="number" required>
+  Currency ID for the request.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Requested amount.
+</ParamField>
+
+<ParamField body="note" type="string">
+  Optional note for the payer.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the request was created.
+</ResponseField>
+
+<ResponseField name="tr_ref_id" type="number">
+  ID of the created request payment record.
+</ResponseField>
+
+<ResponseField name="requestMoneyMailErrorMessage" type="string">
+  Email error message if notification failed but the request was still created.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/request-money-pay \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "emailOrPhone": "payer@example.com",
+    "currencyId": 1,
+    "amount": 50,
+    "note": "Split for dinner"
+  }'
+```
+
+---
+
+## GET /accept-request-email-phone
+
+Retrieves the request details (creator email/phone, amount, currency) for a given request payment. Used to populate the accept flow.
+
+### Request parameters
+
+<ParamField query="tr_ref_id" type="number" required>
+  The request payment ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="email" type="string">Creator's email, if applicable.</ResponseField>
+    <ResponseField name="phone" type="string">Creator's phone, if applicable.</ResponseField>
+    <ResponseField name="amount" type="number">Requested amount.</ResponseField>
+    <ResponseField name="currency" type="string">Currency code.</ResponseField>
+    <ResponseField name="currencySymbol" type="string">Currency symbol.</ResponseField>
+    <ResponseField name="currency_id" type="number">Currency ID.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/accept-request-email-phone?tr_ref_id=77' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /request-accept-amount-limit-check
+
+Checks whether the payer has sufficient balance and the amount is within limits before acceptance.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The payer's user ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The amount being accepted.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID of the request.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `invalidCurrency`, `insufficientBalance`, `minLimit`, or `minMaxLimit`.</ResponseField>
+    <ResponseField name="message" type="string">Error message.</ResponseField>
+    <ResponseField name="minLimit" type="number">Minimum limit (on limit error).</ResponseField>
+    <ResponseField name="maxLimit" type="number">Maximum limit (on limit error).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/request-accept-amount-limit-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 55, "amount": 50, "currency_id": 1}'
+```
+
+---
+
+## GET /get-accept-fees-details
+
+Returns the fee breakdown for accepting a money request.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The payer's user ID.
+</ParamField>
+
+<ParamField query="amount" type="number" required>
+  The request amount.
+</ParamField>
+
+<ParamField query="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="totalAmount" type="number">Amount including fees.</ResponseField>
+    <ResponseField name="totalFees" type="number">Total fees.</ResponseField>
+    <ResponseField name="currSymbol" type="string">Currency symbol.</ResponseField>
+    <ResponseField name="currCode" type="string">Currency code.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-accept-fees-details?user_id=55&amount=50&currency_id=1' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /accept-request-payment-pay
+
+Confirms and executes the payment for an accepted money request.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The payer's user ID.
+</ParamField>
+
+<ParamField body="tr_ref_id" type="number" required>
+  The request payment ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  The accepted amount.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees from `/get-accept-fees-details`.
+</ParamField>
+
+<ParamField body="tr_email_or_phone" type="string" required>
+  Creator's email or phone (used for notification routing).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the payment was accepted.
+</ResponseField>
+
+<ResponseField name="requestAccptValidationErrorMessage" type="string">
+  Validation error when `status` is `false`.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/accept-request-payment-pay \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 55,
+    "tr_ref_id": 77,
+    "amount": 50,
+    "currency_id": 1,
+    "totalFees": 0.75,
+    "tr_email_or_phone": "requester@example.com"
+  }'
+```
+
+---
+
+## POST /cancel-request
+
+Cancels an existing money request. Either the creator or the payer may call this endpoint.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The calling user's ID (creator or payer).
+</ParamField>
+
+<ParamField body="tr_id" type="number" required>
+  The transaction ID associated with the request payment.
+</ParamField>
+
+<ParamField body="tr_email_or_phone" type="string" required>
+  The other party's email or phone (used for notification routing).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">
+  `200` on success, `401` on error.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message on failure.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/cancel-request \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "tr_id": 1001,
+    "tr_email_or_phone": "payer@example.com"
+  }'
+```

@@ -1,0 +1,298 @@
+---
+title: "Merchant Payments API"
+description: "Process QR code payments to standard and express merchants."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Overview
+
+The Doss platform supports two merchant types:
+
+- **Standard merchant** — The QR code encodes a fixed payment amount. The user reviews and confirms the pre-set amount.
+- **Express merchant** — The QR code does not include an amount. The user enters the payment amount at checkout.
+
+---
+
+## Standard merchant flow
+
+<Steps>
+  <Step title="Scan QR code">
+    Call `POST /perform-qr-code-operation` to decode the merchant QR code and get `merchantId`, `merchantDefaultCurrencyCode`, and `merchantPaymentAmount`.
+  </Step>
+  <Step title="Review payment">
+    Call `POST /perform-merchant-payment-qr-code-review` to validate balance and calculate the merchant fee.
+  </Step>
+  <Step title="Submit payment">
+    Call `POST /perform-merchant-payment-qr-code-submit`.
+  </Step>
+</Steps>
+
+---
+
+## POST /perform-merchant-payment-qr-code-review
+
+Validates a standard merchant QR payment. Checks merchant existence, currency availability, and user balance, and returns the calculated fee.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated payer's user ID.
+</ParamField>
+
+<ParamField body="merchantId" type="number" required>
+  Merchant ID decoded from the QR code.
+</ParamField>
+
+<ParamField body="merchantDefaultCurrencyCode" type="string" required>
+  Currency code from the QR code (e.g. `USD`).
+</ParamField>
+
+<ParamField body="merchantPaymentAmount" type="number" required>
+  Payment amount from the QR code.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` on validation failure.</ResponseField>
+<ResponseField name="message" type="string">Error description on failure.</ResponseField>
+<ResponseField name="merchantBusinessName" type="string">Merchant's business name.</ResponseField>
+<ResponseField name="merchantPaymentCurrencySymbol" type="string">Currency symbol.</ResponseField>
+<ResponseField name="merchantPaymentAmount" type="number">Payment amount.</ResponseField>
+<ResponseField name="merchantCalculatedChargePercentageFee" type="number">Calculated merchant fee amount.</ResponseField>
+<ResponseField name="merchantActualFee" type="number">Merchant fee percentage rate. Pass to the submit endpoint.</ResponseField>
+<ResponseField name="merchantCurrencyId" type="number">Currency ID. Pass to the submit endpoint.</ResponseField>
+<ResponseField name="merchantUserId" type="number">Merchant user ID. Pass to the submit endpoint.</ResponseField>
+
+### Error conditions
+
+| Reason | Description |
+|--------|-------------|
+| `401` | Merchant does not exist |
+| `401` | Merchant cannot pay themselves |
+| `401` | Currency not found |
+| `401` | User does not have the required currency wallet |
+| `401` | Insufficient balance |
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-merchant-payment-qr-code-review \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "merchantId": 7,
+    "merchantDefaultCurrencyCode": "USD",
+    "merchantPaymentAmount": 25.00
+  }'
+```
+
+---
+
+## POST /perform-merchant-payment-qr-code-submit
+
+Executes a standard merchant QR payment. Creates merchant payment and transaction records, and updates both the payer's and merchant's wallets.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated payer's user ID.
+</ParamField>
+
+<ParamField body="merchantId" type="number" required>
+  Merchant ID.
+</ParamField>
+
+<ParamField body="merchantPaymentAmount" type="number" required>
+  Total payment amount.
+</ParamField>
+
+<ParamField body="merchantActualFee" type="number" required>
+  Merchant fee percentage from the review step.
+</ParamField>
+
+<ParamField body="merchantCurrencyId" type="number" required>
+  Currency ID from the review step.
+</ParamField>
+
+<ParamField body="merchantUserId" type="number" required>
+  Merchant user ID from the review step.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+<ResponseField name="message" type="string">Error description on failure.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-merchant-payment-qr-code-submit \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "merchantId": 7,
+    "merchantPaymentAmount": 25.00,
+    "merchantActualFee": 2.5,
+    "merchantCurrencyId": 1,
+    "merchantUserId": 15
+  }'
+```
+
+---
+
+## Express merchant flow
+
+<Steps>
+  <Step title="Scan QR code">
+    Call `POST /perform-qr-code-operation` to get `expressMerchantId` and `expressMerchantPaymentCurrencyCode`.
+  </Step>
+  <Step title="Review merchant and wallets">
+    Call `POST /perform-express-merchant-payment-qr-code-merchant-currency-user-wallets-review`.
+  </Step>
+  <Step title="Enter and review amount">
+    Call `POST /perform-express-merchant-payment-qr-code-merchant-amount-review`.
+  </Step>
+  <Step title="Submit payment">
+    Call `POST /perform-express-merchant-payment-qr-code-submit`.
+  </Step>
+</Steps>
+
+---
+
+## POST /perform-express-merchant-payment-qr-code-merchant-currency-user-wallets-review
+
+Validates merchant and currency for an express merchant payment. Does not check the amount (entered in the next step).
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated payer's user ID.
+</ParamField>
+
+<ParamField body="expressMerchantId" type="number" required>
+  Express merchant ID from the decoded QR code.
+</ParamField>
+
+<ParamField body="expressMerchantPaymentCurrencyCode" type="string" required>
+  Currency code from the decoded QR code.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` on validation failure.</ResponseField>
+<ResponseField name="message" type="string">Error description on failure.</ResponseField>
+<ResponseField name="expressMerchantBusinessName" type="string">Merchant's business name.</ResponseField>
+<ResponseField name="expressMerchantPaymentCurrencyId" type="number">Currency ID. Pass to subsequent steps.</ResponseField>
+<ResponseField name="expressMerchantPaymentCurrencySymbol" type="string">Currency symbol.</ResponseField>
+<ResponseField name="expressMerchantActualFee" type="number">Merchant fee percentage. Pass to subsequent steps.</ResponseField>
+<ResponseField name="expressMerchantUserId" type="number">Merchant user ID. Pass to the submit endpoint.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-express-merchant-payment-qr-code-merchant-currency-user-wallets-review \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "expressMerchantId": 8,
+    "expressMerchantPaymentCurrencyCode": "USD"
+  }'
+```
+
+---
+
+## POST /perform-express-merchant-payment-qr-code-merchant-amount-review
+
+Validates the user-entered amount for an express merchant payment. Checks balance and calculates the fee.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated payer's user ID.
+</ParamField>
+
+<ParamField body="expressMerchantPaymentAmount" type="number" required>
+  The amount the user wants to pay.
+</ParamField>
+
+<ParamField body="expressMerchantPaymentCurrencyId" type="number" required>
+  Currency ID from the wallet review step.
+</ParamField>
+
+<ParamField body="expressMerchantActualFee" type="number" required>
+  Fee percentage from the wallet review step.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` on insufficient balance.</ResponseField>
+<ResponseField name="message" type="string">Error description on failure.</ResponseField>
+<ResponseField name="expressMerchantCalculatedChargePercentageFee" type="number">Calculated fee amount.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-express-merchant-payment-qr-code-merchant-amount-review \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "expressMerchantPaymentAmount": 50.00,
+    "expressMerchantPaymentCurrencyId": 1,
+    "expressMerchantActualFee": 2.5
+  }'
+```
+
+---
+
+## POST /perform-express-merchant-payment-qr-code-submit
+
+Executes an express merchant QR payment. Creates merchant payment and transaction records and updates both wallets. If the merchant does not yet have a wallet in the payment currency, one is created automatically.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated payer's user ID.
+</ParamField>
+
+<ParamField body="expressMerchantId" type="number" required>
+  Express merchant ID.
+</ParamField>
+
+<ParamField body="expressMerchantPaymentAmount" type="number" required>
+  Total payment amount.
+</ParamField>
+
+<ParamField body="expressMerchantActualFee" type="number" required>
+  Merchant fee percentage.
+</ParamField>
+
+<ParamField body="expressMerchantPaymentCurrencyId" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="expressMerchantUserId" type="number" required>
+  Merchant user ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` on error.</ResponseField>
+<ResponseField name="message" type="string">Error description on failure.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-express-merchant-payment-qr-code-submit \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "expressMerchantId": 8,
+    "expressMerchantPaymentAmount": 50.00,
+    "expressMerchantActualFee": 2.5,
+    "expressMerchantPaymentCurrencyId": 1,
+    "expressMerchantUserId": 16
+  }'
+```

@@ -1,0 +1,112 @@
+---
+title: "Admin Dashboard"
+description: "Overview of the Doss admin panel dashboard, metrics, navigation areas, and activity monitoring."
+sidebarTitle: "Dashboard"
+icon: "gauge"
+---
+
+The admin dashboard is the central hub for monitoring your Doss platform. It provides a real-time summary of financial activity, user counts, transaction volumes, and open support items.
+
+## Accessing the dashboard
+
+Log in with your admin credentials. You are redirected to the main dashboard at `/admin/home`. A second dashboard view, the Doss-specific home at `/admin/doss-home`, provides a focused view of Doss-specific metrics.
+
+## Dashboard views
+
+<Tabs>
+  <Tab title="Main dashboard">
+    The main dashboard (`DashboardController@index`) aggregates platform-wide data:
+
+    - **Total users** — count of all registered user accounts
+    - **Total merchants** — count of merchant accounts
+    - **Total tickets** — count of open support tickets
+    - **Total disputes** — count of active payment disputes
+    - **Latest tickets** — the most recent support submissions
+    - **Latest disputes** — the most recently opened disputes
+    - **Wallet balances** — aggregated wallet balances per currency
+    - **Active currencies** — all currencies with `status = Active`
+  </Tab>
+  <Tab title="Doss home">
+    The Doss-specific dashboard (`/admin/doss-home`, route name `doss-home`) is a focused view for Doss platform metrics. It renders the `admin.dashboard.doss-index` view and is accessible from the sidebar under the `doss-home` menu item.
+  </Tab>
+</Tabs>
+
+## Transaction metrics
+
+The dashboard displays deposit, withdrawal, and transfer volumes across four time windows. Use the tabs in the UI to switch between them.
+
+<AccordionGroup>
+  <Accordion title="This week">
+    Revenue, deposits, withdrawals, and transfers from the current Monday through Sunday. Percentage breakdowns show each type as a share of total revenue for the period.
+  </Accordion>
+  <Accordion title="Last week">
+    The same metrics for the previous Monday through Sunday period, allowing direct week-over-week comparison.
+  </Accordion>
+  <Accordion title="This month">
+    Aggregated totals from the first day of the current calendar month to today.
+  </Accordion>
+  <Accordion title="Last month">
+    Full month totals for the previous calendar month.
+  </Accordion>
+</AccordionGroup>
+
+Each metric panel shows the raw value and its percentage relative to total revenue for that period.
+
+## 30-day activity chart
+
+The dashboard renders a 30-day trend chart with three data series:
+
+| Series | Source |
+|--------|--------|
+| Deposits | `Transaction::lastThirtyDaysDeposit()` |
+| Withdrawals | `Transaction::lastThirtyDaysWitdrawal()` |
+| Transfers | `Transaction::lastThirtyDaysTransfer()` |
+
+Dates on the x-axis are formatted as `dd MMM` (for example, `15 Mar`) and represent the previous 31 days in chronological order.
+
+## Navigation areas
+
+The admin panel sidebar organises features into the following sections:
+
+<Columns cols={2}>
+  <Card title="Users" icon="users">
+    Manage regular users, Doss users, merchants, and admin accounts. Access KYC verification and user alerts.
+  </Card>
+  <Card title="Transactions" icon="arrow-right-arrow-left">
+    View and edit all deposits, withdrawals, transfers, exchanges, request payments, and revenues.
+  </Card>
+  <Card title="Support" icon="ticket">
+    Manage support tickets and payment disputes, including reply threads and status changes.
+  </Card>
+  <Card title="Settings" icon="gear">
+    Configure currencies, fees and limits, payment methods, email/SMS, countries, languages, roles, and general platform preferences.
+  </Card>
+  <Card title="Module manager" icon="puzzle-piece">
+    Enable and disable platform modules (addons) via the module manager interface.
+  </Card>
+  <Card title="Crypto providers" icon="bitcoin">
+    Configure and toggle active crypto payment providers such as BlockIo.
+  </Card>
+</Columns>
+
+## Quick actions
+
+From the dashboard you can immediately navigate to:
+
+- **Users** — `/admin/users` — view all platform users
+- **Doss users** — `/admin/doss-users` — view Doss-specific accounts
+- **Merchants** — `/admin/merchants` — view merchant list
+- **Transactions** — `/admin/transactions` — full transaction history
+- **Deposits** — `/admin/deposits`
+- **Withdrawals** — `/admin/withdrawals`
+- **Revenues** — `/admin/revenues`
+- **Disputes** — `/admin/disputes`
+- **Tickets** — `/admin/tickets/list`
+
+## Activity monitoring
+
+The dashboard surfaces the latest tickets and disputes directly on the home screen so you can respond without navigating away. For a full audit trail, go to **Settings > Activity logs** (`/admin/activity_logs`), which lists all admin actions with CSV and PDF export options.
+
+## Language switching
+
+Admins can switch the panel language without leaving the dashboard. Submit a `POST` request to `/admin/change-lang` with a `lang` parameter. The selected locale is stored in the session and applied immediately.

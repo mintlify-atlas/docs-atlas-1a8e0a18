@@ -1,0 +1,85 @@
+---
+title: "Introduction"
+description: "Doss is a full-featured digital wallet and payment platform built on Laravel 10, designed for financial institutions, fintech companies, and businesses."
+---
+
+## What is Doss?
+
+Doss is a self-hosted digital wallet and payment platform built on [Laravel 10](https://laravel.com). It gives financial institutions, fintech companies, and businesses a complete suite of payment services under their own brand — covering everything from peer-to-peer transfers and multi-currency wallets to merchant payments, invoicing, and cryptocurrency deposits.
+
+The platform ships as a modular Laravel application using [nwidart/laravel-modules](https://nwidart.com/laravel-modules), so individual feature sets can be enabled, disabled, or extended without touching the core codebase.
+
+## Key capabilities
+
+**Wallet management**  
+Each user holds one or more wallets tied to supported currencies. Balances are tracked in real time, and the admin panel controls which currencies are active and what exchange rates apply.
+
+**Send and receive money**  
+Peer-to-peer transfers between registered users by email or phone number. Transfers include configurable fees, per-currency limits, OTP confirmation, and full transaction history.
+
+**Deposits**  
+Users can fund their wallets through multiple channels:
+- Bank transfer (manual and automated)
+- Stripe (card payments)
+- PayPal
+- CoinPayments (Bitcoin and other cryptocurrencies via the `block_io-php` and CoinPayments integrations)
+
+**Withdrawals**  
+Users configure payout settings (bank accounts, crypto addresses) and submit withdrawal requests. Admins review and approve payouts, with full PDF/CSV export.
+
+**Currency exchange**  
+On-platform conversion between any two active wallet currencies. Exchange rates are configurable by admins and fees apply per currency pair.
+
+**Merchant payments**  
+Businesses can register as merchants and accept payments via QR code (standard and express modes) or through the merchant payment API. Cashier accounts and shift management are included.
+
+**Invoices**  
+Users can create and send invoices to other Doss users. Recipients pay directly from their wallet balance. Stripe is also accepted for invoice payment.
+
+**Request money**  
+Send a payment request to another user by email or phone. The recipient can accept or decline; disputes can be opened on completed transactions.
+
+## Who is Doss for?
+
+| Audience | Use case |
+|---|---|
+| Financial institutions | White-label digital wallet product for their customer base |
+| Fintech companies | Core payment infrastructure with an extensible module system |
+| Businesses | Accept merchant payments, manage cashier shifts, and issue invoices |
+| Developers | REST API for building mobile and web apps on top of the Doss platform |
+
+## Architecture overview
+
+Doss is a standard Laravel 10 application with the following notable components:
+
+- **PHP 8.2+** — required runtime
+- **nwidart/laravel-modules 10** — modular feature architecture; modules live in the `Modules/` directory and are autoloaded via PSR-4
+- **Laravel Passport 11** — OAuth 2.0 token-based authentication for the REST API
+- **Laravel Sanctum 3** — session-based auth for the web interface
+- **pragmarx/google2fa-laravel** — TOTP-based two-factor authentication (Google Authenticator compatible)
+- **kreait/firebase-php 7** — Firebase Cloud Messaging (FCM) for push notifications on mobile
+- **pusher/pusher-php-server 7** — real-time in-browser notifications via Pusher
+- **stripe/stripe-php 10** — Stripe card payment processing
+- **twilio/sdk 6** — SMS OTP delivery for phone verification and 2FA
+- **spatie/laravel-activitylog 4** — audit trail for all significant user and admin actions
+- **barryvdh/laravel-dompdf / mpdf/mpdf** — PDF generation for receipts, invoices, and reports
+- **maatwebsite/excel 3** — CSV/Excel export of transaction and user data
+
+The REST API uses token-based auth (`check-authorization-token` middleware) and is versioned. Mobile apps interact exclusively through the API; the web interface uses session auth with 2FA enforcement.
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Register an account, complete KYC, and make your first transfer.
+  </Card>
+  <Card title="Installation" icon="server" href="/installation">
+    Deploy Doss on your own server with step-by-step instructions.
+  </Card>
+  <Card title="Admin guide" icon="shield" href="/admin/dashboard">
+    Configure currencies, fees, payment methods, and user permissions.
+  </Card>
+  <Card title="API reference" icon="code" href="/api/authentication">
+    Authenticate and call the REST API from your mobile or web app.
+  </Card>
+</CardGroup>

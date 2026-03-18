@@ -1,0 +1,95 @@
+---
+title: 'CoinPayments Integration'
+description: 'Accept cryptocurrency deposits via CoinPayments with IPN-based confirmation.'
+keywords: ['coinpayments', 'crypto', 'bitcoin', 'deposit', 'IPN', 'blockchain']
+---
+
+Doss integrates with [CoinPayments](https://www.coinpayments.net) to accept cryptocurrency deposits. CoinPayments generates a payment address and QR code for each transaction. When the on-chain payment is confirmed, CoinPayments sends an Instant Payment Notification (IPN) to Doss, which finalizes the deposit.
+
+## Supported cryptocurrencies
+
+Any coin listed as accepted by the CoinPayments merchant account and returned by the `GetRates` API call is available as a deposit method. The application filters the full rate list to `coins_accept` — coins that CoinPayments will accept for the merchant's account. Common examples include BTC, ETH, LTC, DOGE, and USDT.
+
+For fiat-denominated wallets (e.g. USD), the deposit amount is converted to BTC using the `rate_btc` field from `GetRates`, and the user selects which coin to pay with. For crypto-denominated wallets, the deposit coin matches the wallet currency directly.
+
+## Prerequisites
+
+- A [CoinPayments merchant account](https://www.coinpayments.net/register)
+- A **Public Key** and **Private Key** from your CoinPayments account API settings
+- An **IPN Secret** configured in your CoinPayments account
+
+## Configuration
+
+<Steps>
+  <Step title="Retrieve your API keys">
+    In your CoinPayments account, go to **Account → API Keys**. Generate or copy your **Public Key** and **Private Key**.
+  </Step>
+
+  <Step title="Set an IPN Secret">
+    In CoinPayments, go to **Account → Account Settings → Merchant Settings** and set an **IPN Secret**. This secret is used to verify that IPN requests originate from CoinPayments.
+  </Step>
+
+  <Step title="Enter credentials in the admin panel">
+    In Doss, navigate to **Payment Methods → CoinPayments**. Enter the **Public Key** (`public_key`), **Private Key** (`private_key`), and **IPN Secret** for the target currency. These are stored in `currency_payment_methods.method_data` as JSON.
+  </Step>
+
+  <Step title="Configure the IPN URL">
+    Set your IPN URL in CoinPayments to:
+    ```
+    https://your-domain.com/coinpayment/check
+    ```
+    This route is already registered in the application and excluded from CSRF verification.
+  </Step>
+
+  <Step title="Activate CoinPayments for deposit">
+    Enable the CoinPayments method for the **deposit** transaction type on each currency. The `activated_for` field must include `deposit`.
+  </Step>
+
+  <Step title="Set fees and limits">
+    Configure the minimum/maximum deposit limits and fee structure under **Fees & Limits** for the CoinPayments method.
+  </Step>
+</Steps>
+
+<Note>
+The IPN URL `https://your-domain.com/coinpayment/check` must be publicly accessible. CoinPayments cannot reach a local or firewalled server. Use a tunnel (e.g. ngrok) for local testing.
+</Note>
+
+## How crypto deposits work
+
+1. **Initiate deposit** — The user selects an amount and CoinPayments as the payment method.
+2. **Coin selection** — For fiat wallets, the user is shown a list of accepted coins. `CoinPaymentRepository::GetRates` is called with the stored `private_key` and `public_key` to fetch current rates and filter to `coins_accept`.
+3. **Create transaction** — `CoinPaymentRepository::CreateTransaction` is called with:
+   - `amount` and `currency1`/`currency2` (the deposit currency)
+   - `buyer_email` and `buyer_name` from the authenticated user
+   - `item_name`: `"Deposit via coinpayment"`
+   - `custom`: a UUID that links the CoinPayments transaction to the internal deposit record
+   - `ipn_url`: `https://your-domain.com/coinpayment/check`
+   - `cancel_url` and `success_url`
+4. **Record pending deposit** — A `Deposit` record (status `Pending`) and a `Transaction` record (status `Pending`) are created. A `CoinpaymentLogTrx` row is also written, storing the `txn_id`, `payment_address`, `coin`, expected `amount`, expiry time, and the JSON `payload` linking to the internal deposit and transaction IDs.
+5. **User pays** — The user sends the crypto amount to the `payment_address` shown on screen (with optional QR code).
+6. **IPN confirmation** — When the payment reaches the required number of confirmations, CoinPayments POSTs to `/coinpayment/check` with `ipn_type: "api"`, `status: 100`, and `status_text: "Complete"`. The handler (`DepositController@coinpaymentCheckStatus`) matches the `txn_id` and `custom` UUID to the pending `CoinpaymentLogTrx`, updates the deposit and transaction to `Success`, and credits the wallet.
+
+### IPN route
+
+```
+POST /coinpayment/check
+```
+
+This route is defined in `routes/web.php` outside the auth middleware group and is excluded from CSRF verification in `VerifyCsrfToken.php`.
+
+### Transaction status values
+
+| Status code | Meaning |
+|------------|----------|
+| `0` | Waiting for payment |
+| `1` | Coin received, waiting for confirms |
+| `100` | Payment complete |
+| `-1` | Cancelled / timed out |
+
+Only `status == 100` with `status_text == "Complete"` triggers the deposit to be marked as `Success` and the wallet balance to be credited.
+
+## Limitations
+
+- Crypto-to-crypto deposits require the wallet currency to be in the CoinPayments `coins_accept` list. If the currency code is not listed, the deposit is rejected with `"Currency code is not listed."`
+- If the CoinPayments API returns an error during `GetRates` (e.g. invalid credentials), the user sees `"It seems the credential provided is wrong. You may contact with the system administrator."`
+- Deposit transactions expire according to the `time_expires` value returned by CoinPayments. Payments received after expiry are not credited automatically.

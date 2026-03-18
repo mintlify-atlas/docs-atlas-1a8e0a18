@@ -1,0 +1,495 @@
+---
+title: "Withdrawals API"
+description: "Manage payout settings and submit withdrawal requests via bank, PayPal, or crypto."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Flow overview
+
+<Steps>
+  <Step title="Set up a payout method">
+    Add a bank, PayPal, or crypto payout setting via `POST /add-withdraw-setting`.
+  </Step>
+  <Step title="Select a payout setting">
+    Call `GET /get-withdraw-payment-method` to list saved payout settings.
+  </Step>
+  <Step title="Select currency and check limits">
+    Call `GET /get-withdraw-currencies-based-on-payment-method`, then `GET /get-withdraw-details-with-amount-limit-check`.
+  </Step>
+  <Step title="Submit the withdrawal">
+    Call `POST /withdraw-money-pay`.
+  </Step>
+</Steps>
+
+---
+
+## GET /payout-setting
+
+Returns all saved payout settings for the user, with payment method and currency details.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="payout_setting_id" type="number">
+  Filter to a specific payout setting ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="payoutSettings" type="array">
+  List of payout setting objects including payment method name and currency code.
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/payout-setting?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /get-withdraw-payment-methods
+
+Returns payment methods available for withdrawal settings (excludes gateway-only methods like Stripe, Coinpayments).
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="paymentMethods" type="array">
+  List of payment method objects with `id` and `name`.
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url https://your-domain.com/api/get-withdraw-payment-methods \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /add-withdraw-setting
+
+Adds a new payout setting. The required fields depend on the payment method type.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="paymentmethod" type="number" required>
+  Payment method type ID. Use values returned by `/get-withdraw-payment-methods`.
+</ParamField>
+
+**For Bank type:**
+
+<ParamField body="account_name" type="string">
+  Account holder name. Required for Bank.
+</ParamField>
+
+<ParamField body="account_number" type="string">
+  Bank account number. Required for Bank.
+</ParamField>
+
+<ParamField body="swift_code" type="string">
+  SWIFT/BIC code. Required for Bank.
+</ParamField>
+
+<ParamField body="bank_name" type="string">
+  Bank name. Required for Bank.
+</ParamField>
+
+<ParamField body="branch_name" type="string">
+  Branch name. Required for Bank.
+</ParamField>
+
+<ParamField body="branch_city" type="string">
+  Branch city. Required for Bank.
+</ParamField>
+
+<ParamField body="branch_address" type="string">
+  Branch address. Required for Bank.
+</ParamField>
+
+<ParamField body="country" type="number">
+  Country ID. Required for Bank.
+</ParamField>
+
+**For PayPal type:**
+
+<ParamField body="email" type="string">
+  PayPal email address. Required for PayPal. Must be unique per user.
+</ParamField>
+
+**For Crypto type:**
+
+<ParamField body="crypto_address" type="string">
+  Crypto wallet address. Required for Crypto. Must be unique per user.
+</ParamField>
+
+<ParamField body="currency" type="number">
+  Cryptocurrency currency ID. Required for Crypto.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on validation failure.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `duplicate-email`, `duplicate-crypto-address`, `empty-crypto-address`, or `empty-currency-id`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/add-withdraw-setting \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "paymentmethod": 2,
+    "email": "mypaypal@example.com"
+  }'
+```
+
+---
+
+## POST /edit-withdraw-setting
+
+Updates an existing payout setting. The same field rules apply as for `/add-withdraw-setting`.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="payout_setting_id" type="number" required>
+  ID of the payout setting to update.
+</ParamField>
+
+All other fields are the same as `/add-withdraw-setting` depending on the payment method type.
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on validation failure.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/edit-withdraw-setting \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "payout_setting_id": 5,
+    "email": "newpaypal@example.com"
+  }'
+```
+
+---
+
+## POST /delete-payout-setting
+
+Permanently deletes a payout setting.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="payout_setting_id" type="number" required>
+  ID of the payout setting to delete.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `403` on error.</ResponseField>
+    <ResponseField name="message" type="string">Result message.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/delete-payout-setting \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "payout_setting_id": 5}'
+```
+
+---
+
+## GET /check-payout-settings
+
+Checks whether the user has any saved payout settings.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success.</ResponseField>
+<ResponseField name="payoutSettings" type="array">Array of payout setting IDs. Empty if none configured.</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/check-payout-settings?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /get-withdraw-payment-method
+
+Returns the user's saved payout settings formatted for the withdrawal flow, including payment type and credential summary.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="paymentmethod" type="array">
+      List of payout setting objects.
+      <Expandable title="payout method properties">
+        <ResponseField name="id" type="number">Payout setting ID.</ResponseField>
+        <ResponseField name="user_id" type="number">Owner user ID.</ResponseField>
+        <ResponseField name="paymentMethod" type="string">Payment method name.</ResponseField>
+        <ResponseField name="paymentMethodId" type="number">Payment method type ID.</ResponseField>
+        <ResponseField name="paymentMethodCredential" type="string">Email or account name (for PayPal/Bank).</ResponseField>
+        <ResponseField name="cryptoAddress" type="string">Crypto address (for Crypto type).</ResponseField>
+        <ResponseField name="currencyId" type="number">Crypto currency ID.</ResponseField>
+        <ResponseField name="currencyCode" type="string">Crypto currency code.</ResponseField>
+        <ResponseField name="withdrawalType" type="number">Numeric type: Bank, PayPal, or Crypto.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-withdraw-payment-method?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /get-withdraw-currencies-based-on-payment-method
+
+Returns the currencies available for withdrawal using the selected payout setting.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="paymentMethodId" type="number" required>
+  The payment method type ID from the payout setting.
+</ParamField>
+
+<ParamField query="currencyId" type="number">
+  For crypto withdrawals: the specific crypto currency ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="currencies" type="array">List of eligible currencies with `id`, `code`, `default_wallet`, and `currencyType`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-withdraw-currencies-based-on-payment-method?user_id=42&paymentMethodId=2' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /get-withdraw-details-with-amount-limit-check
+
+Validates the withdrawal amount and returns fee details and payout setting info.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField query="amount" type="number" required>
+  Withdrawal amount.
+</ParamField>
+
+<ParamField query="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField query="payoutSetId" type="number" required>
+  Payout setting ID.
+</ParamField>
+
+<ParamField query="paymentMethodId" type="number" required>
+  Payment method type ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `insufficientBalance`, `minLimit`, or `minMaxLimit`.</ResponseField>
+    <ResponseField name="amount" type="number">Withdrawal amount.</ResponseField>
+    <ResponseField name="totalFees" type="number">Total fees.</ResponseField>
+    <ResponseField name="totalAmount" type="number">Amount + fees.</ResponseField>
+    <ResponseField name="currCode" type="string">Currency code.</ResponseField>
+    <ResponseField name="currSymbol" type="string">Currency symbol.</ResponseField>
+    <ResponseField name="account_name" type="string">Payout account holder name.</ResponseField>
+    <ResponseField name="account_number" type="string">Payout account number.</ResponseField>
+    <ResponseField name="bank_name" type="string">Bank name.</ResponseField>
+    <ResponseField name="swift_code" type="string">SWIFT code.</ResponseField>
+    <ResponseField name="type" type="string">Payment method name.</ResponseField>
+    <ResponseField name="payout_setting_id" type="number">Payout setting ID.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-withdraw-details-with-amount-limit-check?user_id=42&amount=100&currency_id=1&payoutSetId=5&paymentMethodId=2' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /withdraw-money-pay
+
+Submits the withdrawal. Funds are deducted from the user's wallet and a withdrawal record is created.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Withdrawal amount.
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees from `/get-withdraw-details-with-amount-limit-check`.
+</ParamField>
+
+<ParamField body="payout_setting_id" type="number" required>
+  Payout setting ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the withdrawal was submitted.
+</ResponseField>
+
+<ResponseField name="withdrawalValidationErrorMessage" type="string">
+  Error message when `status` is `false`.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/withdraw-money-pay \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "currency_id": 1,
+    "amount": 100,
+    "totalFees": 2.50,
+    "payout_setting_id": 5
+  }'
+```
+
+---
+
+## GET /withdrawal/get-all-countries
+
+Returns all countries for the payout setting country selector.
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="countries" type="array">List of country objects with `id` and `name`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url https://your-domain.com/api/withdrawal/get-all-countries \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## GET /withdrawal/get-withdrawal-crypto-currencies
+
+Returns cryptocurrencies the user holds that are eligible for withdrawal.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="currencies" type="array">List of crypto currencies with `id` and `code`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/withdrawal/get-withdrawal-crypto-currencies?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```

@@ -1,0 +1,136 @@
+---
+title: "Payment Methods"
+description: "Enabling, configuring, and managing payment gateways, bank accounts, and crypto payment providers in Doss."
+sidebarTitle: "Payment methods"
+icon: "credit-card"
+---
+
+Payment method settings in Doss are per-currency. Each currency can have its own gateway credentials, active transaction types (deposit, withdrawal), and optional processing time. Settings are stored in the `currency_payment_methods` table via the `CurrencyPaymentMethod` model.
+
+## Navigating to payment method settings
+
+Payment method configuration is accessed from the currency settings page. The URL pattern is:
+
+```
+/admin/settings/payment-methods/{method}/{currency_id}
+```
+
+Where `{method}` is the lowercase payment method name, for example:
+
+```
+/admin/settings/payment-methods/stripe/1
+/admin/settings/payment-methods/bank/1
+/admin/settings/payment-methods/coinpayments/1
+```
+
+Required permission: `edit_currency`
+
+<Note>
+  Payment method settings are not available for currencies with `type = crypto_asset`. Attempting to open the settings page for a crypto asset currency redirects back with an error.
+</Note>
+
+## Available payment methods
+
+Doss supports the following payment methods out of the box:
+
+| Method | Type | Use case |
+|--------|------|----------|
+| Bank | Fiat | Manual bank transfer deposits and withdrawals |
+| Stripe | Fiat | Card payments via Stripe |
+| PayPal | Fiat | PayPal deposits |
+| PayUmoney | Fiat | PayUmoney deposits |
+| CoinPayments | Crypto | Cryptocurrency deposits via CoinPayments |
+| Payeer | Fiat/Crypto | Payeer payment processing |
+| Mobile Money | Fiat | Mobile money deposits |
+
+## Configuring gateway credentials
+
+<Steps>
+  <Step title="Open the payment method settings">
+    Navigate to `/admin/settings/payment-methods/{method}/{currency_id}`.
+  </Step>
+  <Step title="Set activated transaction types">
+    Select which transaction types the method is active for: deposit, withdrawal, or both.
+  </Step>
+  <Step title="Enter gateway credentials">
+    For Stripe, PayPal, PayUmoney, CoinPayments, and Payeer, enter the API keys and secrets required by the provider. These are stored as JSON in the `method_data` column.
+  </Step>
+  <Step title="Set processing time (optional)">
+    Enter the expected processing time shown to users on the front-end.
+  </Step>
+  <Step title="Save">
+    POST to `/admin/settings/payment-methods/update-paymentMethod-Credentials`. The system upserts a `CurrencyPaymentMethod` record keyed on `(method_id, currency_id)`.
+  </Step>
+</Steps>
+
+The `activated_for` column stores a JSON object mapping transaction type names to their enabled state (for example `{"deposit": "", "withdrawal": ""}`). This is built from the submitted `transaction_type` checkboxes via the `currencyTransactionTypes()` helper.
+
+## Bank payment method
+
+The bank payment method supports multiple bank accounts per currency. Each bank account is an independent record in the `banks` table, linked to a `CurrencyPaymentMethod` record via a JSON `method_data` field containing `{"bank_id": N}`.
+
+### Adding a bank
+
+<Steps>
+  <Step title="Open the bank payment method settings">
+    Navigate to `/admin/settings/payment-methods/bank/{currency_id}`.
+  </Step>
+  <Step title="Fill in the bank details">
+    Required fields:
+    - Account name
+    - Account number
+    - SWIFT code
+    - Bank name
+    - Branch name, city, and address
+    - Country
+
+    You can optionally upload a bank logo (JPG, PNG, or GIF, resized to 120×80 px with a 70×70 thumbnail).
+  </Step>
+  <Step title="Set as default (optional)">
+    Mark one bank per currency as the default. When a new default is set, any previous default for that currency is automatically cleared.
+  </Step>
+  <Step title="Submit">
+    POST to `/admin/settings/payment-methods/add-bank`. The bank record and its linked `CurrencyPaymentMethod` record are created in a single request.
+  </Step>
+</Steps>
+
+### Updating and deleting banks
+
+- **Update** — POST to `/admin/settings/payment-methods/update-bank` with the bank ID and updated fields.
+- **Delete** — POST to `/admin/settings/payment-methods/delete-bank`. Banks with existing transactions cannot be deleted.
+- **Delete logo** — POST to `/admin/settings/payment-methods/delete-bank-logo` to remove only the logo file.
+
+## Stripe integration
+
+Stripe handles card payment deposits. Enter your Stripe credentials on the payment method settings page for each fiat currency you want to accept cards for.
+
+Required fields in `method_data`:
+- Stripe publishable key
+- Stripe secret key
+
+See [Stripe integration](/integrations/stripe) for full setup instructions.
+
+## CoinPayments integration (crypto)
+
+CoinPayments handles cryptocurrency deposits. Configure it on each crypto currency's payment method settings page.
+
+Required fields in `method_data`:
+- CoinPayments public key
+- CoinPayments private key
+- Merchant ID
+- IPN secret
+
+See [CoinPayments integration](/integrations/coinpayments) for full setup instructions.
+
+## AJAX helpers
+
+Two AJAX endpoints power the dynamic payment method UI:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /admin/settings/get-payment-methods-details` | Fetch existing `CurrencyPaymentMethod` record for a method + currency |
+| `POST /admin/settings/get-payment-methods-specific-currency-details` | Fetch currency details along with method data, including bank or mobile money lists |
+| `POST /admin/settings/payment-methods/getCpmId` | Resolve a bank ID to its `CurrencyPaymentMethod` ID and full bank record |
+| `POST /admin/settings/payment-methods/show-bank-details` | Show bank details for a specific `CurrencyPaymentMethod` |
+
+All endpoints return JSON with a `status` field (`200` on success, `401` if not found).

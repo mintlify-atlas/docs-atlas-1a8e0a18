@@ -1,0 +1,118 @@
+---
+title: "Invoices"
+description: "Create, send, and pay itemized invoices between Doss users, backed by wallet-to-wallet transfers."
+---
+
+## Overview
+
+The Invoices feature lets you create formal payment requests with line-item details, due dates, and billing information. Invoices are sent to a specific recipient on the platform. The recipient can pay the invoice directly from their Doss wallet or reject it. Payment triggers a wallet-to-wallet transfer identical to a standard Send Money transaction.
+
+## Creating an invoice
+
+<Steps>
+  <Step title="Go to Create Invoice">
+    Navigate to **Create Invoice** (`/create-invoice`). All registered users are available as recipients.
+  </Step>
+  <Step title="Fill in billing details">
+    Complete the invoice form:
+
+    - **Invoice ID** — your reference number for this invoice
+    - **Order number** and **Shipment number** — optional tracking references
+    - **Bill From** — your name, phone number, and description
+    - **Bill To** — select the recipient user; their phone number is fetched automatically
+    - **Dates** — invoice date, due date, and shipment date
+    - **Currency** — the currency for this invoice
+  </Step>
+  <Step title="Add line items">
+    Add one or more items with:
+    - Item name
+    - Description
+    - Quantity
+    - Unit price
+
+    The system calculates subtotal, tax, discount, late fee, and total.
+  </Step>
+  <Step title="Add notes">
+    Optionally add notes visible to the recipient.
+  </Step>
+  <Step title="Submit">
+    Submit the invoice. It is saved with status `unpaid` and becomes visible to the recipient in their invoice inbox.
+  </Step>
+</Steps>
+
+## Sending an invoice to a user
+
+Invoices are sent to a specific registered user selected from the recipient dropdown during creation. The system resolves the recipient's phone number from their profile automatically.
+
+<Note>
+The recipient must be a registered Doss user. Invoices cannot currently be sent to unregistered email addresses.
+</Note>
+
+## Viewing your invoices
+
+- **Invoices you created** — navigate to **My Invoices** (`/all-invoices`) to see all invoices you have issued.
+- **Invoices sent to you** — navigate to **User Invoices** (`/user/invoices`) to see invoices you have received.
+
+Each invoice can be opened to view full billing details, line items, amounts, and current status.
+
+## Paying an invoice
+
+<Steps>
+  <Step title="Open the invoice">
+    From your invoice inbox (`/user/invoices`), click the invoice you want to pay.
+  </Step>
+  <Step title="Go to payment">
+    Click **Pay Invoice**. The invoice details and total are shown alongside your default wallet balance.
+  </Step>
+  <Step title="Select payment method">
+    Invoice payment is processed via **Stripe** (card payment) or wallet-to-wallet transfer depending on invoice configuration.
+
+    For wallet payment, the system processes a `Transfer` from your wallet to the invoice creator's wallet — the same mechanism as Send Money.
+  </Step>
+  <Step title="Confirm payment">
+    Authorize the payment. On success:
+    - Your wallet is debited for the invoice total.
+    - The creator's wallet is credited.
+    - The invoice status is updated to `paid`.
+    - Transfer records (`Transferred` and `Received`) are created for both parties with `is_invoice_payment = 1`.
+  </Step>
+</Steps>
+
+<Tip>
+Invoice payments are flagged with `is_invoice_payment = 1` on the transfer and transaction records, making them easy to identify in transaction history.
+</Tip>
+
+## Rejecting an invoice
+
+If you receive an invoice you do not want to pay, you can reject it:
+
+1. Open the invoice from your inbox.
+2. Click **Reject Invoice**.
+3. The invoice status is updated to `rejected`.
+
+Rejecting an invoice does not deduct any funds. The creator can see the rejection in their invoice list.
+
+## Invoice status lifecycle
+
+| Status | Meaning |
+|---|---|
+| `unpaid` | Invoice created and awaiting payment |
+| `paid` | Payment completed; both parties have transaction records |
+| `rejected` | Recipient declined the invoice |
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Transfer funds directly without a formal invoice.
+  </Card>
+  <Card title="Request Money" icon="hand" href="/features/request-money">
+    Request a specific amount informally from another user.
+  </Card>
+  <Card title="Merchant Payments" icon="store" href="/features/merchant-payments">
+    Accept payments as a merchant via QR code or payment link.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View your wallet balance and payment history.
+  </Card>
+</CardGroup>

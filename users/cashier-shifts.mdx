@@ -1,0 +1,135 @@
+---
+title: "Cashier Shifts"
+description: "How cashiers use shifts to track working sessions and transaction activity in Doss."
+---
+
+A cashier shift is a timed working session that groups all payment transactions processed by a cashier between a start time and an end time. Shifts give merchants a clear audit trail of cashier activity and make it straightforward to reconcile takings at the end of each session.
+
+Shift data is stored in the `shifts` table with three core fields:
+
+| Field | Description |
+|---|---|
+| `cashier_id` | The user ID of the cashier who owns the shift |
+| `start_time` | Timestamp when the shift was opened |
+| `end_time` | Timestamp when the shift was closed (`null` while open) |
+
+## Shift workflow
+
+<Steps>
+  <Step title="Log in as a cashier">
+    Navigate to `/cashier_login` and sign in with your cashier credentials (email and password). Cashier accounts are created by a merchant or admin and linked to a specific merchant via `merchant_id`.
+
+    After login, you land on the cashier dashboard where you can see your QR code and your shift controls.
+  </Step>
+
+  <Step title="Start a shift">
+    Click **Start Shift** on your dashboard. The system creates a new shift record:
+
+    ```php
+    Shift::create([
+        'cashier_id' => Auth::id(),
+        'start_time' => now(),
+    ]);
+    ```
+
+    The `end_time` is left `null` until you end the shift. You can only have one open shift at a time. A success message confirms the shift has started.
+
+    <Info>
+      If you try to start a shift while another is already open, the existing shift remains active. Make sure to end your previous shift before starting a new one.
+    </Info>
+  </Step>
+
+  <Step title="Process transactions">
+    While a shift is active, all `Payment_Received` transactions recorded against your cashier ID are automatically associated with the open shift based on timestamp.
+
+    Customers can pay by scanning your cashier QR code or by using a merchant payment link. Each successful payment increments the transaction count shown on your shift history page.
+
+    Transactions are matched to the shift using:
+
+    ```php
+    Transaction::where('cashier_id', Auth::id())
+        ->where('transaction_type_id', Payment_Received)
+        ->whereBetween('created_at', [$shift->start_time, $shift->end_time ?? now()]);
+    ```
+  </Step>
+
+  <Step title="End a shift">
+    Click **End Shift** when your working session is complete. The system finds your most recent open shift and records the current time:
+
+    ```php
+    $shift = Shift::where('cashier_id', Auth::id())
+                  ->whereNull('end_time')
+                  ->latest()
+                  ->first();
+
+    $shift->update(['end_time' => now()]);
+    ```
+
+    Once `end_time` is set, the shift is closed. Transactions can no longer be added to it. A success message confirms the shift has ended.
+
+    <Warning>
+      If no open shift is found when you click **End Shift**, you will see a "No open shift found" notice. This can happen if you already ended the shift from another session.
+    </Warning>
+  </Step>
+
+  <Step title="Review the shift summary">
+    After ending a shift, navigate to **Shifts** (`/shifts`) to see your shift history. The list shows:
+
+    - Start and end time for each shift
+    - Total number of `Payment_Received` transactions processed during the shift
+
+    You can filter the list by date range using the **From** and **To** date pickers.
+
+    Click on a shift row to open the **Shift Transactions** view, which lists every individual transaction processed during that session. You can further filter transactions by type, wallet, status, and date.
+  </Step>
+</Steps>
+
+## Exporting shift data
+
+Doss provides two export formats for both the shifts list and individual shift transaction reports.
+
+### Shifts list
+
+| Format | Action |
+|---|---|
+| XLSX (Excel) | Click **Export CSV** on the shifts list page. Downloads a file named `shifts_report_{timestamp}.xlsx`. |
+| PDF | Click **Export PDF** on the shifts list page. Generates a PDF summary of all shifts in the current filter range. |
+
+### Shift transactions
+
+From inside a shift's transaction detail view:
+
+| Format | Action |
+|---|---|
+| XLSX (Excel) | Click **Export CSV** to download `shift_transaction_report_{timestamp}.xlsx` containing all transactions for that shift. |
+| PDF | Click **Export PDF** to generate a PDF report of the transactions for that shift. |
+
+<Note>
+  Exports include the date range filter if one is applied. The PDF header shows the date range or "N/A" if no filter is active.
+</Note>
+
+## Manager oversight
+
+Managers can view shift records and transaction reports for any cashier under the same merchant. This is done through the admin-side shift view, which accepts a `cashier_id` parameter:
+
+```php
+// Manager/admin shift query for a specific cashier
+(new Shift())->getShiftsListCashier($from, $to, $cashier_id);
+```
+
+From the admin panel, an admin or manager can:
+
+- View the complete shift history for a specific cashier
+- Open the transaction detail for any shift
+- Export shift transaction reports (XLSX and PDF) on behalf of any cashier using the admin export routes
+
+<Info>
+  The manager dashboard provides a high-level overview of all cashier activity under the merchant. Managers do not need to log in as cashiers to access their shift data.
+</Info>
+
+## Shift states at a glance
+
+| State | `end_time` value | Transactions accepted |
+|---|---|---|
+| Open | `null` | Yes |
+| Closed | Timestamp | No |

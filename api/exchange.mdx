@@ -1,0 +1,317 @@
+---
+title: "Currency Exchange API"
+description: "Exchange funds between wallets using live or stored exchange rates."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Flow overview
+
+<Steps>
+  <Step title="Get source wallets">
+    Call `GET /get-User-Wallets-WithActive-HasTransaction` to list the user's eligible source currencies.
+  </Step>
+  <Step title="Get destination wallets">
+    Call `POST /getWalletsExceptSelectedFromWallet` to list available destination currencies.
+  </Step>
+  <Step title="Get exchange rate">
+    Call `POST /get-currencies-exchange-rate`.
+  </Step>
+  <Step title="Review details">
+    Call `POST /review-exchange-details` to calculate fees and final amounts.
+  </Step>
+  <Step title="Complete exchange">
+    Call `POST /exchange-money-complete`.
+  </Step>
+</Steps>
+
+---
+
+## GET /get-User-Wallets-WithActive-HasTransaction
+
+Returns the user's wallets that have active currencies with configured exchange fee/limit rules.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="activeHasTransactionUserCurrencyList" type="object">Key-value map of currency_id to `{id, code}`.</ResponseField>
+    <ResponseField name="defaultWalletCurrencyId" type="number">Currency ID of the user's default wallet.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-User-Wallets-WithActive-HasTransaction?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /exchange-review
+
+Validates the source amount against balance and fee/limit rules before proceeding.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Source wallet currency ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Amount to exchange.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `noHasTransaction`, `insufficientBalance`, `minLimit`, or `minMaxLimit`.</ResponseField>
+    <ResponseField name="message" type="string">Error description.</ResponseField>
+    <ResponseField name="wallet_currency" type="string">Source wallet currency code.</ResponseField>
+    <ResponseField name="minLimit" type="number">Minimum limit (on limit error).</ResponseField>
+    <ResponseField name="maxLimit" type="number">Maximum limit (on limit error).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/exchange-review \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "currency_id": 1, "amount": 100}'
+```
+
+---
+
+## POST /getBalanceOfFromAndToWallet
+
+Returns the balance and currency code for a specific wallet.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  The wallet's currency ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">`true` if the wallet exists.</ResponseField>
+<ResponseField name="balance" type="string">Numeric balance formatted to 2 decimal places.</ResponseField>
+<ResponseField name="currencyCode" type="string">Currency code.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/getBalanceOfFromAndToWallet \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "currency_id": 1}'
+```
+
+---
+
+## POST /getWalletsExceptSelectedFromWallet
+
+Returns available destination currencies, excluding the selected source currency.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  The source currency ID to exclude.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">`true` if currencies are available.</ResponseField>
+<ResponseField name="currencies" type="object">
+  Key-value map of currency_id to `{id, code, balance}`. `null` if no eligible currencies.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/getWalletsExceptSelectedFromWallet \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "currency_id": 1}'
+```
+
+---
+
+## POST /get-currencies-exchange-rate
+
+Returns the current exchange rate from one currency to another.
+
+### Request parameters
+
+<ParamField body="fromWallet" type="number" required>
+  Source currency ID.
+</ParamField>
+
+<ParamField body="fromWalletCode" type="string" required>
+  Source currency code (e.g. `USD`). Used for API rate lookup.
+</ParamField>
+
+<ParamField body="toWallet" type="number" required>
+  Destination currency ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Amount to convert (used for display calculation only).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` if currency not found.</ResponseField>
+    <ResponseField name="toWalletRate" type="number">Exchange rate from source to destination.</ResponseField>
+    <ResponseField name="toWalletRateHtml" type="number">Same as `toWalletRate` (for display).</ResponseField>
+    <ResponseField name="toWalletCode" type="string">Destination currency code.</ResponseField>
+    <ResponseField name="toWalletSymbol" type="string">Destination currency symbol.</ResponseField>
+    <ResponseField name="getAmountMoneyFormat" type="string">Formatted converted amount string.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/get-currencies-exchange-rate \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "fromWallet": 1,
+    "fromWalletCode": "USD",
+    "toWallet": 2,
+    "amount": 100
+  }'
+```
+
+---
+
+## POST /review-exchange-details
+
+Calculates fees and the final converted amount for the exchange.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Source amount.
+</ParamField>
+
+<ParamField body="fromWalletValue" type="number" required>
+  Source currency ID.
+</ParamField>
+
+<ParamField body="toWalletRate" type="number" required>
+  Exchange rate from `/get-currencies-exchange-rate`.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="convertedAmnt" type="number">Converted amount in destination currency.</ResponseField>
+    <ResponseField name="totalAmount" type="number">Source amount + fees.</ResponseField>
+    <ResponseField name="totalFees" type="number">Total fees.</ResponseField>
+    <ResponseField name="totalFeesHtml" type="string">Formatted total fees.</ResponseField>
+    <ResponseField name="toWalletRateHtml" type="number">Exchange rate.</ResponseField>
+    <ResponseField name="fCurrencySymbol" type="string">Source currency symbol.</ResponseField>
+    <ResponseField name="fCurrencyCode" type="string">Source currency code.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/review-exchange-details \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "amount": 100,
+    "fromWalletValue": 1,
+    "toWalletRate": 0.85
+  }'
+```
+
+---
+
+## POST /exchange-money-complete
+
+Executes the currency exchange. Deducts from the source wallet and credits the destination wallet.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+<ParamField body="fromWalletValue" type="number" required>
+  Source currency ID.
+</ParamField>
+
+<ParamField body="toWalletValue" type="number" required>
+  Destination currency ID.
+</ParamField>
+
+<ParamField body="fromWalletAmount" type="number" required>
+  Source amount to deduct.
+</ParamField>
+
+<ParamField body="toWalletAmount" type="number" required>
+  Converted amount to credit in destination currency.
+</ParamField>
+
+<ParamField body="toWalletExchangeRate" type="number" required>
+  Exchange rate used.
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees from `/review-exchange-details`.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">`true` on success, `false` on hard failure.</ResponseField>
+<ResponseField name="exchangeMoneyValidationErrorMessage" type="string">Error message when `status` is `false`.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/exchange-money-complete \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "fromWalletValue": 1,
+    "toWalletValue": 2,
+    "fromWalletAmount": 100,
+    "toWalletAmount": 85,
+    "toWalletExchangeRate": 0.85,
+    "totalFees": 1.50
+  }'
+```

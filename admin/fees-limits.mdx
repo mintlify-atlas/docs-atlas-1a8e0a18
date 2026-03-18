@@ -1,0 +1,131 @@
+---
+title: "Fees & Limits"
+description: "Configuring transaction fees, percentage charges, and amount limits per currency, payment method, and transaction type in Doss."
+sidebarTitle: "Fees & limits"
+icon: "sliders"
+---
+
+Doss calculates fees and enforces amount limits at the intersection of three dimensions: **currency**, **payment method**, and **transaction type**. Every combination can have its own fixed charge, percentage charge, minimum amount, and maximum amount.
+
+## Data model
+
+Fee and limit settings are stored in the `fees_limits` table, represented by the `FeesLimit` model:
+
+```php fees_limits table columns
+currency_id         // FK → currencies
+transaction_type_id // FK → transaction_types
+payment_method_id   // FK → payment_methods (null for non-payment-method types)
+charge_percentage   // percentage fee (e.g. 1.5 for 1.5%)
+charge_fixed        // flat fee in the currency's unit
+min_limit           // minimum transaction amount (defaults to 1.00)
+max_limit           // maximum transaction amount (null = unlimited)
+processing_time     // informational processing time
+has_transaction     // 'Yes' | 'No' — whether transactions exist for this rule
+```
+
+## Transaction types
+
+Fees and limits are configured independently for each transaction type:
+
+| Tab in UI | Internal name | Requires payment method |
+|-----------|---------------|------------------------|
+| `deposit` | `Deposit` | Yes |
+| `withdrawal` | `Withdrawal` | Yes |
+| `transfer` | `Transferred` | No |
+| `exchange` | `Exchange_From` | No |
+| `request_payment` | `Request_Received` | No |
+
+For deposit and withdrawal types, a separate fee record exists for every active payment method. For transfer, exchange, and request payment, a single record covers the entire transaction type.
+
+## Navigating to fees & limits
+
+Fees and limits are configured per currency. Start at **Settings > Currencies** (`/admin/settings/currency`), then open a currency's settings.
+
+The fees/limits page URL follows this pattern:
+
+```
+/admin/settings/feeslimit/{tab}/{currency_id}
+```
+
+For example, to set deposit fees for currency ID 1:
+
+```
+/admin/settings/feeslimit/deposit/1
+```
+
+Valid tab values: `deposit`, `withdrawal`, `transfer`, `exchange`, `request_payment`
+
+## How fees are calculated
+
+For each transaction, Doss applies both fee components:
+
+```
+total_fee = charge_fixed + (transaction_amount × charge_percentage / 100)
+```
+
+Both components can be set to `0` independently. Setting `charge_fixed = 0` and `charge_percentage = 0` makes the transaction free.
+
+## Configuring deposit and withdrawal fees
+
+Deposit and withdrawal fees are set per payment method. The form lists every active payment method available for the currency type (fiat or crypto), loaded from the platform-wide payment method settings.
+
+<Steps>
+  <Step title="Open the fee settings">
+    Go to `/admin/settings/feeslimit/deposit/{currency_id}` or `/admin/settings/feeslimit/withdrawal/{currency_id}`.
+  </Step>
+  <Step title="Fill in values for each payment method">
+    For each listed payment method, set:
+    - **Charge percentage** — percentage fee applied to the transaction amount
+    - **Charge fixed** — flat fee charged per transaction
+    - **Min limit** — minimum allowed transaction amount (cannot be blank; defaults to `1.00`)
+    - **Max limit** — maximum allowed transaction amount (leave blank for no upper limit)
+    - **Has transaction** — whether this payment method should be active for live transactions
+  </Step>
+  <Step title="Save">
+    POST to `/admin/settings/feeslimit/update-deposit-limit`. The system upserts a `FeesLimit` record per payment method.
+  </Step>
+</Steps>
+
+<Note>
+  For the default currency, `has_transaction` is automatically set to `Yes` regardless of the checkbox value.
+</Note>
+
+## Configuring transfer, exchange, and request payment fees
+
+These transaction types use a single fee record per currency (no payment method dimension).
+
+<Steps>
+  <Step title="Open the fee settings">
+    Go to `/admin/settings/feeslimit/transfer/{currency_id}`, `/admin/settings/feeslimit/exchange/{currency_id}`, or `/admin/settings/feeslimit/request_payment/{currency_id}`.
+  </Step>
+  <Step title="Fill in the values">
+    Set charge percentage, charge fixed, min limit, and max limit for the currency.
+  </Step>
+  <Step title="Save">
+    POST to `/admin/settings/feeslimit/update-deposit-limit`. The system upserts a single `FeesLimit` record keyed on `(transaction_type_id, currency_id)`.
+  </Step>
+</Steps>
+
+## Fiat vs crypto settings
+
+The available payment methods shown in the fee configuration form differ by currency type:
+
+- **Fiat currencies** — payment methods drawn from `getPaymoneySettings('payment_methods')['web']['fiat']['deposit']` (or `['withdrawal']`)
+- **Crypto currencies** — payment methods drawn from `getPaymoneySettings('payment_methods')['web']['crypto']['deposit']` (or `['withdrawal']`)
+
+Decimal precision for amount display also differs: fiat uses the `decimal_format_amount` preference (typically 2), while crypto uses `decimal_format_amount_crypto` (typically 8).
+
+## Per-merchant-group fee overrides
+
+Merchant groups allow per-group fee customisation. When a merchant's group changes, fees can be adjusted automatically. Navigate to **Settings > Merchant groups** (`/admin/settings/merchant-group`) to create and edit groups, then use the `POST /admin/merchants/change-fee-with-group-change` endpoint to apply the group's fee rules to the merchant.
+
+## Fetching fee details via AJAX
+
+Two AJAX endpoints support the fee settings UI:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /admin/settings/get-feeslimit-details` | Retrieve current fee records for a currency + transaction type |
+| `POST /admin/settings/get-specific-currency-details` | Retrieve currency details along with its fee records |
+
+Both return a JSON payload with `status` (`200` on success, `401` if not found) and the `feeslimit` data.

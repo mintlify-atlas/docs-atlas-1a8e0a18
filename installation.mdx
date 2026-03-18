@@ -1,0 +1,298 @@
+---
+title: "Installation"
+description: "Server installation guide for Doss — deploy the Laravel application on your own infrastructure."
+---
+
+## Requirements
+
+Before installing Doss, ensure your server meets the following requirements:
+
+| Requirement | Version |
+|---|---|
+| PHP | 8.2 or higher |
+| Database | MySQL 8.0+ or PostgreSQL 13+ |
+| Composer | 2.x |
+| Node.js | 18 LTS or higher |
+| npm | 9+ |
+| Redis | 6+ (required for queue processing) |
+| Web server | Nginx or Apache |
+
+Required PHP extensions: `pdo`, `pdo_mysql` (or `pdo_pgsql`), `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json`, `bcmath`, `gd`, `zip`, `curl`, `fileinfo`.
+
+<Warning>
+  Generate and set `APP_KEY` before running any Artisan commands or serving the application. Running Doss without an application key means encrypted data (sessions, tokens, user data) cannot be decrypted. Run `php artisan key:generate` immediately after copying `.env`.
+</Warning>
+
+## Installation steps
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/smonderoy/doss.git
+    cd doss
+    ```
+  </Step>
+
+  <Step title="Install PHP dependencies">
+    Install all Composer packages defined in `composer.json`. Key dependencies include Laravel 10, Laravel Passport, nwidart/laravel-modules, Stripe, Firebase, and Pusher.
+
+    ```bash
+    composer install --optimize-autoloader --no-dev
+    ```
+
+    For a development environment, omit `--no-dev` to include packages like PHPUnit, Laravel Pint, and Ignition:
+
+    ```bash
+    composer install
+    ```
+  </Step>
+
+  <Step title="Install JavaScript dependencies">
+    <CodeGroup>
+
+    ```bash npm
+    npm install
+    npm run build
+    ```
+
+    ```bash yarn
+    yarn install
+    yarn build
+    ```
+
+    </CodeGroup>
+  </Step>
+
+  <Step title="Configure environment">
+    Copy the example environment file and open it for editing:
+
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
+
+    Edit `.env` and set the values for your environment. See the [Environment variables](#environment-variables) section below for a full reference.
+
+    At minimum, configure:
+
+    ```bash .env
+    APP_NAME=Doss
+    APP_ENV=production
+    APP_DEBUG=false
+    APP_URL=https://your-domain.com
+
+    DB_CONNECTION=mysql
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+    DB_DATABASE=doss
+    DB_USERNAME=doss_user
+    DB_PASSWORD=your_database_password
+
+    QUEUE_CONNECTION=redis
+    REDIS_HOST=127.0.0.1
+    REDIS_PORT=6379
+    ```
+
+    Then install Laravel Passport encryption keys:
+
+    ```bash
+    php artisan passport:install
+    ```
+  </Step>
+
+  <Step title="Run database migrations and seeders">
+    Create the database schema and load required seed data (currencies, countries, transaction types, default settings):
+
+    ```bash
+    php artisan migrate --seed
+    ```
+
+    <Note>
+      The seeder populates essential lookup data including countries, currencies, notification types, transaction types, and a default admin account. Do not skip seeding on a fresh installation.
+    </Note>
+  </Step>
+
+  <Step title="Set file permissions">
+    The web server process must be able to write to the `storage` and `bootstrap/cache` directories:
+
+    ```bash
+    chmod -R 775 storage bootstrap/cache
+    chown -R www-data:www-data storage bootstrap/cache
+    ```
+
+    Then generate the storage symlink for public file access:
+
+    ```bash
+    php artisan storage:link
+    ```
+  </Step>
+
+  <Step title="Set up queue workers">
+    Doss uses Laravel queues for FCM push notifications, email dispatch, and async transaction processing. Set `QUEUE_CONNECTION=redis` in `.env`, then start a worker:
+
+    ```bash
+    php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    ```
+
+    For production, manage the queue worker with **Supervisor** so it restarts automatically:
+
+    ```ini /etc/supervisor/conf.d/doss-worker.conf
+    [program:doss-worker]
+    process_name=%(program_name)s_%(process_num)02d
+    command=php /var/www/doss/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    autostart=true
+    autorestart=true
+    stopasgroup=true
+    killasgroup=true
+    user=www-data
+    numprocs=2
+    redirect_stderr=true
+    stdout_logfile=/var/www/doss/storage/logs/worker.log
+    stopwaitsecs=3600
+    ```
+
+    ```bash
+    supervisorctl reread && supervisorctl update && supervisorctl start doss-worker:*
+    ```
+  </Step>
+
+  <Step title="Configure the web server">
+    Point your web server document root to the `public/` directory. Below is an example Nginx server block:
+
+    ```nginx /etc/nginx/sites-available/doss
+    server {
+        listen 80;
+        server_name your-domain.com;
+        root /var/www/doss/public;
+        index index.php;
+
+        add_header X-Frame-Options "SAMEORIGIN";
+        add_header X-Content-Type-Options "nosniff";
+
+        charset utf-8;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location = /favicon.ico { access_log off; log_not_found off; }
+        location = /robots.txt  { access_log off; log_not_found off; }
+
+        error_page 404 /index.php;
+
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+
+        location ~ /\.(?!well-known).* {
+            deny all;
+        }
+    }
+    ```
+
+    Enable the site and reload Nginx:
+
+    ```bash
+    ln -s /etc/nginx/sites-available/doss /etc/nginx/sites-enabled/
+    nginx -t && systemctl reload nginx
+    ```
+
+    For HTTPS, use Certbot to obtain a Let's Encrypt certificate:
+
+    ```bash
+    certbot --nginx -d your-domain.com
+    ```
+  </Step>
+
+  <Step title="Optimize for production">
+    Cache configuration, routes, and views to improve performance:
+
+    ```bash
+    php artisan config:cache
+    php artisan route:cache
+    php artisan view:cache
+    ```
+
+    To clear all caches (useful during updates):
+
+    ```bash
+    php artisan optimize:clear
+    ```
+  </Step>
+</Steps>
+
+## Environment variables
+
+The following environment variables control core platform behavior. Set them in your `.env` file.
+
+### Application
+
+| Variable | Description | Example |
+|---|---|---|
+| `APP_NAME` | Application name shown in emails and notifications | `Doss` |
+| `APP_ENV` | Environment (`production`, `local`, `staging`) | `production` |
+| `APP_KEY` | 32-character encryption key — generate with `php artisan key:generate` | |
+| `APP_DEBUG` | Show detailed errors (`true` only in development) | `false` |
+| `APP_URL` | Full URL of the application including scheme | `https://pay.example.com` |
+| `ADMIN_PREFIX` | URL prefix for the admin panel | `admin` |
+| `APP_DEMO` | Enable demo mode (disables destructive actions) | `false` |
+
+### Database
+
+| Variable | Description | Default |
+|---|---|---|
+| `DB_CONNECTION` | Database driver (`mysql` or `pgsql`) | `mysql` |
+| `DB_HOST` | Database server hostname | `127.0.0.1` |
+| `DB_PORT` | Database port | `3306` |
+| `DB_DATABASE` | Database name | |
+| `DB_USERNAME` | Database user | |
+| `DB_PASSWORD` | Database password | |
+
+### Queue and cache
+
+| Variable | Description | Default |
+|---|---|---|
+| `QUEUE_CONNECTION` | Queue driver — use `redis` for production | `sync` |
+| `REDIS_HOST` | Redis server hostname | `127.0.0.1` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_PASSWORD` | Redis password (if auth is enabled) | |
+
+### Broadcasting (Pusher)
+
+Pusher powers real-time in-browser notifications.
+
+| Variable | Description |
+|---|---|
+| `BROADCAST_DRIVER` | Set to `pusher` to enable real-time events |
+| `PUSHER_APP_ID` | Pusher application ID |
+| `PUSHER_APP_KEY` | Pusher application key |
+| `PUSHER_APP_SECRET` | Pusher application secret |
+| `PUSHER_APP_CLUSTER` | Pusher cluster (e.g., `eu`, `us2`) |
+
+### Mail
+
+| Variable | Description | Default |
+|---|---|---|
+| `MAIL_MAILER` | Mail transport (`smtp`, `mailgun`, `ses`, `log`) | `smtp` |
+| `MAIL_HOST` | SMTP server hostname | `smtp.mailgun.org` |
+| `MAIL_PORT` | SMTP port | `587` |
+| `MAIL_ENCRYPTION` | Encryption (`tls` or `ssl`) | `tls` |
+| `MAIL_USERNAME` | SMTP username | |
+| `MAIL_PASSWORD` | SMTP password | |
+| `MAIL_FROM_ADDRESS` | Sender address | |
+| `MAIL_FROM_NAME` | Sender display name | |
+
+### Payment integrations
+
+Configure only the gateways you intend to activate. Credentials for each gateway are stored in the admin panel under **Settings → Payment Methods** rather than in `.env` — the admin UI writes them to the `settings` database table at runtime.
+
+| Variable | Description |
+|---|---|
+| `STRIPE_KEY` | Stripe publishable key |
+| `STRIPE_SECRET` | Stripe secret key |
+
+### Firebase (FCM push notifications)
+
+Firebase credentials are configured via the admin panel. Upload your `firebase_credentials.json` service account file through **Admin → Settings → Firebase**. The application uses `kreait/firebase-php` to send FCM messages to mobile devices.

@@ -1,0 +1,141 @@
+---
+title: 'Firebase Integration'
+description: 'Send push notifications to mobile and web clients via Firebase Cloud Messaging.'
+keywords: ['firebase', 'fcm', 'push notifications', 'mobile', 'cloud messaging']
+---
+
+Doss uses Firebase Cloud Messaging (FCM) to deliver real-time push notifications to users on mobile (Android/iOS) and web. The `kreait/firebase-php ^7.6` package is listed as a dependency, and the `SendFcmNotification` job sends notifications directly to the FCM v1 legacy HTTP API.
+
+## What Firebase is used for
+
+FCM push notifications are dispatched for the following events:
+
+| Event | Title | Job |
+|-------|-------|-----|
+| Payment received (disbursal) | `Disbursals Recieved` | `SendDossFcmNotification` |
+| Payment sent | `Payment Sent` | `SendDossFcmNotification` |
+| Payment received (cashier) | `Payment Received` | `SendCashierFcmNotification` |
+| Insufficient funds | `Insufficient funds` | `SendCashierFcmNotification` |
+| Admin broadcast | Custom title | `SendFcmNotification` |
+
+All notification payloads include a `url` field in the data payload so the client app can deep-link to the relevant screen.
+
+## Prerequisites
+
+- A [Firebase project](https://console.firebase.google.com) with **Cloud Messaging** enabled
+- A **Server Key** from the Firebase project settings (Cloud Messaging → Cloud Messaging API (Legacy))
+
+## Configuration
+
+<Steps>
+  <Step title="Create or open a Firebase project">
+    In the Firebase Console, select or create a project. Navigate to **Project Settings → Cloud Messaging**.
+  </Step>
+
+  <Step title="Enable the Legacy HTTP API and copy the server key">
+    Under **Cloud Messaging API (Legacy)**, ensure the API is enabled. Copy the **Server Key**.
+  </Step>
+
+  <Step title="Update the server key in the job">
+    The server key is currently hardcoded in `app/Jobs/SendFcmNotification.php`:
+
+    ```php app/Jobs/SendFcmNotification.php
+    $serverKey = 'AAAAXjAMvUU:APA91bEmEq...';
+    ```
+
+    Replace this value with your own project's server key. For production, move it to `.env`:
+
+    ```ini .env
+    FCM_SERVER_KEY=your-firebase-server-key
+    ```
+
+    Then reference it in the job:
+
+    ```php
+    $serverKey = env('FCM_SERVER_KEY');
+    ```
+  </Step>
+
+  <Step title="Verify the queue worker is running">
+    `SendFcmNotification` implements `ShouldQueue`. Notifications are only delivered when the queue worker is active. Run:
+
+    ```bash
+    php artisan queue:work
+    ```
+  </Step>
+</Steps>
+
+## How push notifications are sent
+
+`SendFcmNotification` sends a POST request to the FCM legacy endpoint:
+
+```
+https://fcm.googleapis.com/fcm/send
+```
+
+The request payload:
+
+```json
+{
+  "registration_ids": ["<device-token>", "..."],
+  "notification": {
+    "title": "<title>",
+    "body": "<body>"
+  },
+  "data": {
+    "url": "<deep-link-url>"
+  }
+}
+```
+
+`registration_ids` accepts an array of FCM device tokens, allowing a single job dispatch to notify multiple devices simultaneously. Errors from the FCM API are caught and written to the Laravel log via `\Log::info()`.
+
+The job is dispatched using `dispatch(new SendFcmNotification($tokens, $title, $body, $url))`.
+
+## Device token management
+
+FCM device tokens are stored per user in the `users` table:
+
+| Column | Description |
+|--------|-------------|
+| `fcm_last_login_device_token` | Token for the user's mobile device, updated on each login |
+| `fcm_last_login_device_token_for_web` | Token for the user's web session |
+
+Tokens are written when a user logs in via the mobile API. For example, `Api/V2/NewLoginController` calls:
+
+```php
+$user->update(['fcm_last_login_device_token' => $request->fcm_last_login_device_token]);
+```
+
+During registration via `Api/V2/RegistrationController`, the `fcm_last_login_device_token` field is required:
+
+```php
+'fcm_last_login_device_token' => 'required'
+```
+
+When sending a notification to a single user, the dispatcher retrieves the token from the user record:
+
+```php
+dispatch(new SendFcmNotification([$user->fcm_last_login_device_token], $title, $body, $url));
+```
+
+For broadcast notifications (e.g. admin alerts), all non-null tokens are collected:
+
+```php
+$FcmTokens = User::select('fcm_last_login_device_token', 'fcm_last_login_device_token_for_web')
+    ->where('fcm_last_login_device_token', '!=', '')
+    ->whereNotNull('fcm_last_login_device_token')
+    ->get()->toArray();
+
+$fcm_for_mobile = array_column($FcmTokens, 'fcm_last_login_device_token');
+$fcm_for_web    = array_column($FcmTokens, 'fcm_last_login_device_token_for_web');
+
+dispatch(new SendFcmNotification($fcm_for_mobile, $title, $body, $url));
+dispatch(new SendFcmNotification($fcm_for_web, $title, $body, $url));
+```
+
+## Limitations
+
+- The integration uses the **FCM Legacy HTTP API**, which Google deprecated. Migrate to the FCM HTTP v1 API before Google disables legacy API access.
+- The server key is currently hardcoded in the job file. Move it to an environment variable before deploying to production.
+- Stale tokens (devices that have been uninstalled or logged out) are not automatically removed. Implement token cleanup based on FCM `NotRegistered` or `InvalidRegistration` error responses.

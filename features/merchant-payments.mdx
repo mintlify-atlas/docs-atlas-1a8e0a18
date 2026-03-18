@@ -1,0 +1,124 @@
+---
+title: "Merchant Payments"
+description: "Accept payments as a Doss merchant using QR codes, payment links, or the Express merchant API."
+---
+
+## Overview
+
+Doss supports a **merchant account type** that allows businesses and individuals to accept wallet-to-wallet payments from customers. Merchants generate a unique QR code or payment link that customers scan or follow to complete a payment. All merchant payments are tracked in a dedicated payment history.
+
+There are two merchant types:
+
+| Type | Description |
+|---|---|
+| **Standard** | Accepts payments via QR code scan or shared payment link |
+| **Express** | Standard capabilities plus an API integration (`client_id` and `client_secret`) for programmatic payment flows |
+
+## Creating a merchant store
+
+<Steps>
+  <Step title="Go to Store">
+    Navigate to **Store** from the main menu and click **Add Store**.
+  </Step>
+  <Step title="Fill in store details">
+    Provide the following:
+    - Business name (must be unique)
+    - Site URL
+    - Store type (`standard` or `express`)
+    - Address, latitude, and longitude
+    - Description (note)
+    - Logo (optional image upload)
+    - Default currency
+  </Step>
+  <Step title="Save the merchant">
+    The merchant is saved and assigned to a default merchant group (which determines the applicable fee rate). A unique `merchant_uuid` is generated.
+  </Step>
+  <Step title="QR code generated (Express only)">
+    For **Express** merchants, a QR code is automatically generated and linked to the merchant's `client_id`. This QR code encodes the express payment endpoint.
+  </Step>
+</Steps>
+
+## QR code for standard merchants
+
+Standard merchants can display their store QR code so customers can pay by scanning it.
+
+<Steps>
+  <Step title="View your store">
+    Open the merchant store from **Store** list.
+  </Step>
+  <Step title="Locate the QR code">
+    The QR code is displayed on the store detail page. It encodes the merchant payment URL.
+  </Step>
+  <Step title="Customer scans and pays">
+    The customer scans the QR code with their Doss app or a QR scanner, which opens the payment form pre-filled with the merchant details.
+  </Step>
+</Steps>
+
+## How customers pay merchants
+
+<Steps>
+  <Step title="Scan or open the payment link">
+    The customer scans the merchant QR code or opens the shared payment link. The merchant store and currency are pre-filled.
+  </Step>
+  <Step title="Enter the payment amount">
+    The customer enters the amount to pay (or the amount may be fixed for a specific transaction).
+  </Step>
+  <Step title="Confirm payment">
+    The customer reviews the payment details and confirms. Funds are transferred from the customer's wallet to the merchant's wallet.
+  </Step>
+  <Step title="Payment recorded">
+    A `MerchantPayment` record is created and a transaction entry with type `Merchant Payment` is created for the customer. The merchant's payment history is updated.
+  </Step>
+</Steps>
+
+<Note>
+Merchant payments are deducted from the customer's default wallet in the merchant's configured currency. The merchant's fee is set by the merchant group assigned to the store.
+</Note>
+
+## Express merchant payment flow
+
+Express merchants support a programmatic payment flow powered by the `ExpressMerchantPaymentController`. This enables third-party integrations to initiate payments on behalf of the merchant.
+
+- Each Express merchant has a unique `client_id` and `client_secret` generated at creation.
+- The QR code for an Express merchant encodes a URL that includes the `client_id`.
+- Payments initiated via the Express flow use the same wallet debit/credit mechanism as standard merchant payments.
+
+<Tip>
+Keep your `client_secret` confidential. It is used to authenticate server-side payment requests in the Express integration.
+</Tip>
+
+## Merchant payment history
+
+All payments received by a merchant are visible in the merchant's payment history:
+
+- Navigate to **Store** and open the relevant store.
+- The payments tab shows all transactions linked to that merchant, including date, amount, currency, and customer details.
+- Cashiers (sub-accounts under a merchant) see only the payments they processed.
+- Managers and store owners see all payments.
+
+Payment history can be exported to CSV or PDF.
+
+## Cashier accounts
+
+Merchants can assign **cashier** sub-accounts to process payments on their behalf. Each cashier's transactions are tracked separately under the merchant:
+
+- Cashiers see only their own transaction history.
+- Merchant owners and managers can see all cashier transactions.
+- Shift management is available for cashiers — shifts track total payments processed per session.
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Invoices" icon="file-invoice" href="/features/invoices">
+    Send itemized invoices that recipients pay from their wallet.
+  </Card>
+  <Card title="Request Money" icon="hand" href="/features/request-money">
+    Request a specific amount from another user.
+  </Card>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Transfer funds directly between user accounts.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View wallet balances and transaction history.
+  </Card>
+</CardGroup>

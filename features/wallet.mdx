@@ -1,0 +1,110 @@
+---
+title: "Digital Wallet"
+description: "Manage your multi-currency balances, view transaction history, and receive payments using your Doss wallet."
+---
+
+## Overview
+
+Every Doss account includes a built-in digital wallet system. When you register, a wallet is automatically created for the platform's default currency and marked as your **default wallet**. You can hold multiple wallets — one per supported currency — and switch between them for different transaction types.
+
+Wallets are identified in the system by `user_id` and `currency_id`. Each wallet stores a real-time `balance` and an `is_default` flag that determines which wallet is selected by default when you initiate a transfer, exchange, or withdrawal.
+
+<Note>
+Your default wallet is the one with `is_default = Yes`. Only one wallet per account can be the default at any time.
+</Note>
+
+## Wallet creation
+
+Wallets are created in two ways:
+
+1. **On registration** — the platform's configured default currency wallet is created automatically.
+2. **On demand** — when you transact in a currency you do not yet hold, the system creates a wallet for that currency automatically (for example, when receiving a transfer or completing a currency exchange).
+
+New wallets start with a balance of `0.00` and the `is_default` flag set to `No`.
+
+## Viewing your balance
+
+<Steps>
+  <Step title="Open your wallet list">
+    Navigate to **Wallet List** from the main navigation. All your wallets are displayed with their currency code, symbol, and current balance.
+  </Step>
+  <Step title="Check the default wallet">
+    The wallet flagged as default is pre-selected when you start a transaction. You can identify it by the default indicator on the wallet card.
+  </Step>
+  <Step title="View transaction history">
+    Go to **Transactions** to see a full history of all activity across your wallets. You can filter by transaction type, currency, status, and date range.
+  </Step>
+</Steps>
+
+## Transaction history
+
+Every debit and credit to your wallet creates a transaction record. Each transaction includes:
+
+| Field | Description |
+|---|---|
+| `uuid` | Unique transaction reference |
+| `transaction_type_id` | Type (Deposit, Withdrawal, Transferred, Received, Exchange, etc.) |
+| `subtotal` | Amount before fees |
+| `charge_percentage` | Percentage-based fee applied |
+| `charge_fixed` | Fixed fee applied |
+| `total` | Net amount (negative for debits, positive for credits) |
+| `status` | `Pending`, `Success`, or `Blocked` |
+
+You can export your transaction history as a PDF or CSV from the Transactions page.
+
+## Receiving payments via QR code
+
+Your account has a personal QR code that encodes your unique user identifier. Share it with anyone who wants to send you money.
+
+<Steps>
+  <Step title="Open your profile">
+    Go to **Profile** and locate the QR code section.
+  </Step>
+  <Step title="Display or print the QR code">
+    The QR code can be displayed on-screen or printed. Use **Profile > QR Code > Print** to generate a printable version.
+  </Step>
+  <Step title="Sender scans the code">
+    The sender opens Send Money and scans or enters your QR code ID. Your account details are pre-filled for them.
+  </Step>
+</Steps>
+
+<Tip>
+You can update your QR code at any time from **Profile > QR Code > Add or Update**.
+</Tip>
+
+## Multi-currency support
+
+Doss supports both **fiat** and **crypto** currency wallets. The wallet type determines how balances are formatted:
+
+- **Fiat wallets** — balances are formatted to the configured decimal precision (default: 2 decimal places).
+- **Crypto wallets** — balances are formatted to up to 8 decimal places.
+
+Currency exchange rates are applied when performing cross-currency operations such as [currency exchange](/features/currency-exchange).
+
+## Wallet limits and restrictions
+
+- You cannot send money to yourself.
+- Transactions are blocked if your wallet balance is insufficient after fees are calculated.
+- Currency-specific minimum and maximum transaction limits are configured by the administrator in the Fees & Limits settings. These limits apply per transaction type (deposit, withdrawal, transfer, exchange).
+- Wallets are tied to active currencies only. If a currency is deactivated by the administrator, the associated wallet becomes unavailable for new transactions.
+
+<Warning>
+If your account is suspended or inactive, all outbound transactions are blocked. Contact support to resolve account status issues.
+</Warning>
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Transfer funds to another Doss user by ID, email, or phone.
+  </Card>
+  <Card title="Deposits" icon="arrow-down-to-line" href="/features/deposits">
+    Add funds to your wallet via bank transfer, card, PayPal, or crypto.
+  </Card>
+  <Card title="Withdrawals" icon="arrow-up-from-line" href="/features/withdrawals">
+    Withdraw your balance to a bank account or crypto address.
+  </Card>
+  <Card title="Currency Exchange" icon="arrow-right-arrow-left" href="/features/currency-exchange">
+    Swap between supported currencies in your wallet.
+  </Card>
+</CardGroup>

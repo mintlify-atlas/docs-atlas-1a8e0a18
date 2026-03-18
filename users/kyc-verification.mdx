@@ -1,0 +1,125 @@
+---
+title: "KYC Verification"
+description: "How Doss handles Know Your Customer document verification for identity and address proof."
+---
+
+Know Your Customer (KYC) verification is the process by which Doss confirms the identity and physical address of its users. Completing KYC is required before you can access higher transaction limits or certain platform features. All submitted documents are stored in the `document_verifications` table and reviewed by a Doss administrator.
+
+## Verification types
+
+Doss requires two independent document submissions, each tracked as a separate record in `document_verifications` with a distinct `verification_type`.
+
+| Type | `verification_type` | Purpose |
+|---|---|---|
+| Identity proof | `identity` | Confirms who you are |
+| Address proof | `address` | Confirms where you live |
+
+Each record moves through the following statuses:
+
+```
+pending → approved
+         → rejected
+```
+
+When a document is submitted or resubmitted, its status is reset to `pending`. The corresponding field on the `users` table (`identity_verified` or `address_verified`) is updated to `true` only after an admin approves the submission.
+
+## Identity proof
+
+Accepted document types for identity verification (stored in the `identity_type` field):
+
+- Driving licence (`driving_license`)
+- Passport (`passport`)
+- National ID (`national_id`)
+
+Alongside the document type you must provide your document number (`identity_number`) and upload a scan or photo of the document.
+
+**Accepted file formats:** PDF, PNG, JPG, JPEG, GIF, BMP
+
+Files are stored under `uploads/user-documents/identity-proof-files/`.
+
+## Address proof
+
+Address proof requires a document that shows your name and current residential address, such as a utility bill, bank statement, or government-issued letter dated within the last three months.
+
+**Accepted file formats:** PDF, PNG, JPG, JPEG, GIF, BMP
+
+Files are stored under `uploads/user-documents/address-proof-files/`.
+
+## Submitting documents
+
+<Steps>
+  <Step title="Go to your profile">
+    Log in and navigate to your profile page. The KYC section appears under the **Settings** area of your profile.
+  </Step>
+
+  <Step title="Submit identity proof">
+    Open the **Personal ID** section at `profile/personal-id`.
+
+    1. Select your document type from the dropdown: **Driving Licence**, **Passport**, or **National ID**.
+    2. Enter your document number in the **Identity Number** field.
+    3. Upload a clear scan or photo of your document.
+    4. Click **Save** to submit.
+
+    Your submission status is immediately set to `pending`.
+
+    <Warning>
+      If you resubmit after a rejection, your previous file is deleted and replaced. Make sure the new document is legible before uploading.
+    </Warning>
+  </Step>
+
+  <Step title="Submit address proof">
+    Open the **Personal Address** section at `profile/personal-address`.
+
+    1. Upload a document that shows your full name and current address (utility bill, bank statement, or similar).
+    2. Click **Save** to submit.
+
+    Your submission status is immediately set to `pending`.
+  </Step>
+
+  <Step title="Wait for admin review">
+    Administrators can see all pending submissions in the admin panel. They can filter by status, date range, or search by user name. Each submission shows the uploaded file and user details.
+
+    Review time varies. You will see the updated status on your profile page once a decision is made.
+  </Step>
+
+  <Step title="Check your status">
+    Return to `profile/personal-id` or `profile/personal-address` to view the current status of each submission:
+
+    - **Pending** — your document has been received and is awaiting review.
+    - **Approved** — your document has been accepted. The corresponding verified flag on your account is set to `true`.
+    - **Rejected** — your document was not accepted. You can resubmit a corrected document at any time.
+  </Step>
+</Steps>
+
+## Admin review process
+
+Admins access pending verifications from the admin panel. The list view supports:
+
+- Filtering by status (`pending`, `approved`, `rejected`)
+- Filtering by submission date range
+- Searching by user name
+
+For each submission, the admin can:
+
+1. Open the uploaded file to inspect it.
+2. Approve or reject the document.
+3. When approved, the system sets `identity_verified = true` or `address_verified = true` on the user record.
+4. When rejected, the status is updated to `rejected` and the user must resubmit.
+
+<Info>
+  Identity verifications and address verifications are managed in separate admin views. Approving one does not affect the status of the other.
+</Info>
+
+## What gets unlocked after verification
+
+Completing KYC verification unlocks higher transaction limits and demonstrates compliance with anti-money-laundering (AML) requirements. The specific limits that apply to verified versus unverified accounts are configured by an admin under **Fees & Limits** in the admin panel.
+
+| Verification status | Effect |
+|---|---|
+| Neither verified | Default transaction limits apply |
+| Identity approved | Identity-verified limits apply; address proof still required for full verification |
+| Both approved | Full KYC status; highest transaction limits available |
+
+<Note>
+  Verification status is checked at transaction time. You do not need to log out and back in for changes to take effect.
+</Note>

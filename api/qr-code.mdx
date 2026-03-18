@@ -1,0 +1,141 @@
+---
+title: "QR Code API"
+description: "Retrieve, create, and process user QR codes for send money, request money, and merchant payments."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Overview
+
+QR codes in Doss encode a user or merchant identifier as an encrypted string. When scanned, the application decodes the string to determine the QR code type (user, standard merchant, or express merchant) and routes to the appropriate payment flow.
+
+---
+
+## GET /get-user-qr-code
+
+Returns the user's active QR code secret (URL-encoded).
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success, `401` if no active QR code found.</ResponseField>
+<ResponseField name="secret" type="string">URL-encoded QR code secret string.</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-user-qr-code?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /add-or-update-user-qr-code
+
+Generates or refreshes the QR code for the authenticated user.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">`200` on success.</ResponseField>
+<ResponseField name="secret" type="string">URL-encoded secret for the new QR code.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/add-or-update-user-qr-code \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42}'
+```
+
+---
+
+## POST /perform-qr-code-operation
+
+Decodes a scanned QR code and returns the merchant type and details. Use this when the user scans any QR code to determine whether it belongs to a standard or express merchant.
+
+### Request parameters
+
+<ParamField body="resultText" type="string" required>
+  The raw QR code string scanned from the device camera.
+</ParamField>
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean | number">
+  `true` on success, `404` for an invalid QR code.
+</ResponseField>
+
+<ResponseField name="userType" type="string">
+  Decoded type: `standard_merchant` or `express_merchant`.
+</ResponseField>
+
+<ResponseField name="merchantId" type="string">
+  Merchant ID decoded from the QR code.
+</ResponseField>
+
+<ResponseField name="merchantDefaultCurrencyCode" type="string">
+  Merchant's default currency code.
+</ResponseField>
+
+<ResponseField name="merchantPaymentAmount" type="string">
+  Pre-set payment amount (standard merchant only).
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Error message on failure.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/perform-qr-code-operation \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"resultText": "SCANNED_QR_STRING", "user_id": 42}'
+```
+
+---
+
+## POST /send-money-request-money-perform-qr-code-operation
+
+Decodes a user QR code for use in the send money or request money flow. Returns the receiver's email.
+
+### Request parameters
+
+<ParamField body="resultText" type="string" required>
+  The raw QR code string scanned from a user's QR code.
+</ParamField>
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean | number">`true` on success, `404` on failure.</ResponseField>
+<ResponseField name="userType" type="string">`user` on success.</ResponseField>
+<ResponseField name="receiverEmail" type="string">The decoded receiver's email address.</ResponseField>
+<ResponseField name="message" type="string">Error message on failure.</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/send-money-request-money-perform-qr-code-operation \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"resultText": "SCANNED_USER_QR", "user_id": 42}'
+```

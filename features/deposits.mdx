@@ -1,0 +1,161 @@
+---
+title: "Deposits"
+description: "Add funds to your Doss wallet using bank transfer, Stripe card payment, PayPal, or CoinPayments crypto."
+---
+
+## Overview
+
+Deposits let you fund your Doss wallet from an external source. The system supports four payment methods: **Bank Transfer**, **Stripe** (debit/credit card), **PayPal**, and **CoinPayments** (cryptocurrency). The available methods for each currency are configured by the administrator.
+
+Deposit fees (percentage and fixed) are configured per currency and per payment method in Fees & Limits settings.
+
+## Starting a deposit
+
+<Steps>
+  <Step title="Go to Deposit">
+    Navigate to **Deposit** from the main menu. Select the currency you want to deposit into and the payment method.
+  </Step>
+  <Step title="Enter the amount">
+    Enter the deposit amount. The fee breakdown is displayed live. Only currencies that have an active deposit fee configuration are shown.
+  </Step>
+  <Step title="Review fees">
+    The confirmation screen shows:
+    - Amount you are depositing
+    - Percentage fee and fixed fee
+    - Total amount that will be processed (amount + fees)
+  </Step>
+  <Step title="Complete payment">
+    Follow the steps for your chosen payment method (see tabs below).
+  </Step>
+</Steps>
+
+## Payment methods
+
+<Tabs>
+  <Tab title="Bank Transfer">
+    Bank deposits require you to transfer funds to one of the configured bank accounts and then submit proof of payment.
+
+    <Steps>
+      <Step title="Select a bank">
+        After selecting Bank as the payment method, the available banks for your chosen currency are listed with account name, account number, and bank name.
+      </Step>
+      <Step title="Make the transfer">
+        Transfer the deposit amount from your bank to the displayed account. Keep a record of your transfer reference.
+      </Step>
+      <Step title="Submit the deposit form">
+        Return to Doss and submit the deposit form. You can attach a payment receipt file.
+      </Step>
+      <Step title="Wait for approval">
+        Bank deposits are set to `Pending` status until an administrator reviews and approves the payment. You will receive an email notification when the status changes.
+      </Step>
+    </Steps>
+
+    <Note>
+    Bank deposits are not credited to your wallet automatically. An administrator must manually approve the deposit after verifying receipt of funds.
+    </Note>
+  </Tab>
+
+  <Tab title="Stripe (Card)">
+    Pay by debit or credit card using Stripe's payment gateway.
+
+    <Steps>
+      <Step title="Proceed to card payment">
+        Select **Stripe** as the payment method and continue to the card entry form.
+      </Step>
+      <Step title="Enter card details">
+        Enter your card number, expiry month, expiry year, and CVC. All fields are required.
+      </Step>
+      <Step title="Authorize the payment">
+        The system creates a Stripe Payment Intent and confirms it. On success, a `charge_id` and `receipt_url` are stored against the transaction.
+      </Step>
+      <Step title="Wallet credited">
+        On successful card charge, your wallet balance is incremented immediately. The deposit and transaction records are created with status `Success`.
+      </Step>
+    </Steps>
+
+    <Tip>
+    Stripe receipts are stored on the transaction. You can access the Stripe-hosted receipt URL from the transaction details.
+    </Tip>
+  </Tab>
+
+  <Tab title="PayPal">
+    Fund your wallet using a PayPal account.
+
+    <Steps>
+      <Step title="Select PayPal">
+        Choose **PayPal** as the payment method and proceed to the PayPal payment page.
+      </Step>
+      <Step title="Log in to PayPal">
+        You are redirected to a PayPal-hosted page. Log in to your PayPal account and authorize the payment.
+      </Step>
+      <Step title="Return to Doss">
+        After authorization, PayPal redirects you back to Doss. The deposit is processed and your wallet is credited.
+      </Step>
+    </Steps>
+
+    <Note>
+    The PayPal payment uses the currency code of your selected wallet. Ensure your PayPal account supports the chosen currency.
+    </Note>
+  </Tab>
+
+  <Tab title="CoinPayments (Crypto)">
+    Deposit cryptocurrency using the CoinPayments gateway.
+
+    <Steps>
+      <Step title="Select CoinPayments">
+        Choose **CoinPayments** as the payment method. The system fetches live exchange rates and the list of accepted coins from the CoinPayments API.
+      </Step>
+      <Step title="Select a coin">
+        For fiat currency deposits, select a cryptocurrency to pay with. The equivalent crypto amount is calculated from the live rate. For crypto currency wallets, the coin is selected automatically.
+      </Step>
+      <Step title="Send the crypto">
+        A transaction is created via the CoinPayments API. You receive a payment address and amount to send. The transaction is recorded as `Pending`.
+      </Step>
+      <Step title="Wait for IPN confirmation">
+        CoinPayments sends an IPN (Instant Payment Notification) callback to `coinpayment/check` when your transaction receives the required confirmations. The system automatically updates the deposit and transaction status and credits your wallet.
+      </Step>
+    </Steps>
+
+    <Note>
+    CoinPayments deposits remain `Pending` until the required number of blockchain confirmations is received. The confirmation count is set by CoinPayments per coin.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Deposit status tracking
+
+| Status | Meaning |
+|---|---|
+| `Pending` | Deposit submitted but not yet confirmed (bank transfer awaiting admin approval, or crypto awaiting blockchain confirmations) |
+| `Success` | Deposit confirmed and wallet credited |
+
+All your deposits appear in the **Transactions** list filtered by type `Deposit`.
+
+## Fee calculation
+
+Fees are calculated at the time of deposit based on the `FeesLimit` record for the selected currency and payment method:
+
+```
+percentage_fee = amount × (charge_percentage ÷ 100)
+total_fees     = percentage_fee + charge_fixed
+credited_amount = total_amount - total_fees
+```
+
+The amount credited to your wallet is `total_amount - total_fees`, not the gross amount entered.
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Withdrawals" icon="arrow-up-from-line" href="/features/withdrawals">
+    Move funds from your wallet to a bank account or crypto address.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View your wallet balance and transaction history.
+  </Card>
+  <Card title="Currency Exchange" icon="arrow-right-arrow-left" href="/features/currency-exchange">
+    Convert funds between currencies after depositing.
+  </Card>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Transfer wallet funds to another user.
+  </Card>
+</CardGroup>

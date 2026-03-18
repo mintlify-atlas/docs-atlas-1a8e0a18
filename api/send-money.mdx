@@ -1,0 +1,241 @@
+---
+title: "Send Money API"
+description: "Validate recipients, check fee limits, and execute peer-to-peer transfers."
+---
+
+**Base URL:** `https://your-domain.com/api`
+
+<Info>All endpoints on this page require `Authorization: Bearer {token}`.</Info>
+
+## Flow overview
+
+<Steps>
+  <Step title="Validate the recipient">
+    Call `POST /send-money-email-check` or `POST /send-money-phone-check` to confirm the recipient exists and is active.
+  </Step>
+  <Step title="Select currency">
+    Call `GET /get-send-money-currencies` to list the sender's eligible wallets.
+  </Step>
+  <Step title="Check fees and limits">
+    Call `POST /check-send-money-amount-limit` with the chosen currency and amount to get fee details.
+  </Step>
+  <Step title="Execute the transfer">
+    Call `POST /send-money-pay` with the confirmed values.
+  </Step>
+</Steps>
+
+---
+
+## POST /send-money-email-check
+
+Validates that a recipient email is eligible to receive a transfer.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated sender's ID.
+</ParamField>
+
+<ParamField body="receiverEmail" type="string" required>
+  The recipient's email address.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on validation failure.</ResponseField>
+    <ResponseField name="reason" type="string">Error reason: `own-email`, `suspended`, or `inactive`.</ResponseField>
+    <ResponseField name="message" type="string">Human-readable error description.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/send-money-email-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "receiverEmail": "recipient@example.com"}'
+```
+
+---
+
+## POST /send-money-phone-check
+
+Validates that a recipient phone number is eligible to receive a transfer.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated sender's ID. The sender must have a phone number set.
+</ParamField>
+
+<ParamField body="receiverPhone" type="string" required>
+  The recipient's formatted phone number (international format).
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on failure, `404` if sender has no phone set.</ResponseField>
+    <ResponseField name="reason" type="string">Error reason: `own-phone`, `suspended`, or `inactive`.</ResponseField>
+    <ResponseField name="message" type="string">Human-readable error description.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/send-money-phone-check \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "receiverPhone": "+11234567890"}'
+```
+
+---
+
+## GET /get-send-money-currencies
+
+Returns the currencies available for the sender to use, filtered to wallets that have active fee/limit rules.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success.</ResponseField>
+    <ResponseField name="currencies" type="object">
+      Key-value map of currency_id to currency info.
+      <Expandable title="currency properties">
+        <ResponseField name="id" type="number">Currency ID.</ResponseField>
+        <ResponseField name="code" type="string">Currency code, e.g. `USD`.</ResponseField>
+        <ResponseField name="is_default" type="string">`Yes` if this is the user's default wallet currency.</ResponseField>
+        <ResponseField name="type" type="string">`fiat` or `crypto`.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/get-send-money-currencies?user_id=42' \
+  --header 'Authorization: Bearer {token}'
+```
+
+---
+
+## POST /check-send-money-amount-limit
+
+Validates the transfer amount against fees and limits, and returns the fee breakdown.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated sender's ID.
+</ParamField>
+
+<ParamField body="sendCurrency" type="number" required>
+  The currency ID to send in.
+</ParamField>
+
+<ParamField body="sendAmount" type="number" required>
+  The amount to send.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="success" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">`200` on success, `401` on limit/balance failure.</ResponseField>
+    <ResponseField name="reason" type="string">Failure reason: `insufficientBalance`, `minLimit`, or `minMaxLimit`.</ResponseField>
+    <ResponseField name="sendAmount" type="number">The requested send amount.</ResponseField>
+    <ResponseField name="sendCurrency" type="number">The selected currency ID.</ResponseField>
+    <ResponseField name="totalFees" type="number">Total fees (fixed + percentage).</ResponseField>
+    <ResponseField name="sendAmountDisplay" type="string">Formatted send amount.</ResponseField>
+    <ResponseField name="totalFeesDisplay" type="string">Formatted total fees.</ResponseField>
+    <ResponseField name="totalAmountDisplay" type="string">Formatted total amount including fees.</ResponseField>
+    <ResponseField name="currCode" type="string">Currency code.</ResponseField>
+    <ResponseField name="currSymbol" type="string">Currency symbol.</ResponseField>
+    <ResponseField name="currType" type="string">`fiat` or `crypto`.</ResponseField>
+    <ResponseField name="minLimit" type="number">Minimum allowed amount (on limit error).</ResponseField>
+    <ResponseField name="maxLimit" type="number">Maximum allowed amount (on limit error).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/check-send-money-amount-limit \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42, "sendCurrency": 1, "sendAmount": 100}'
+```
+
+---
+
+## POST /send-money-pay
+
+Executes the transfer. Both registered and unregistered recipients (by email or phone) are supported.
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated sender's ID.
+</ParamField>
+
+<ParamField body="emailOrPhone" type="string" required>
+  Recipient's email address or phone number.
+</ParamField>
+
+<ParamField body="currency_id" type="number" required>
+  Currency ID for the transfer.
+</ParamField>
+
+<ParamField body="amount" type="number" required>
+  Transfer amount (before fees).
+</ParamField>
+
+<ParamField body="totalFees" type="number" required>
+  Total fees from `/check-send-money-amount-limit`.
+</ParamField>
+
+<ParamField body="note" type="string">
+  Optional note to the recipient.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="boolean">
+  `true` if the transaction was created, `false` on hard failure.
+</ResponseField>
+
+<ResponseField name="tr_ref_id" type="number">
+  The transaction or transfer record ID. Use with `/get-user-specific-details` to display recipient info.
+</ResponseField>
+
+<ResponseField name="sendMoneyValidationErrorMessage" type="string">
+  Validation error message when `status` is `false`.
+</ResponseField>
+
+<ResponseField name="sendMoneyMailErrorMessage" type="string">
+  Email notification error message when `status` is `true` but notification failed.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/send-money-pay \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "user_id": 42,
+    "emailOrPhone": "recipient@example.com",
+    "currency_id": 1,
+    "amount": 100,
+    "totalFees": 1.50,
+    "note": "Lunch"
+  }'
+```

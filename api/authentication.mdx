@@ -1,0 +1,179 @@
+---
+title: "Authentication"
+description: "Authenticate users and manage sessions using Laravel Passport Bearer tokens."
+---
+
+## Overview
+
+The Doss API uses [Laravel Passport](https://laravel.com/docs/passport) for authentication. After a successful login, the server returns an `access_token`. Include this token in the `Authorization` header of every subsequent request:
+
+```
+Authorization: Bearer {access_token}
+```
+
+**Base URL:** `https://your-domain.com/api`
+
+---
+
+## GET /check-login-via
+
+Returns how login is configured on this instance — email only, phone only, or either.
+
+### Response fields
+
+<ResponseField name="status" type="number">
+  HTTP status code. `200` on success.
+</ResponseField>
+
+<ResponseField name="loginVia" type="string">
+  One of `email_only`, `phone_only`, or `email_or_phone`.
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url https://your-domain.com/api/check-login-via
+```
+
+---
+
+## POST /login
+
+Authenticates a user and returns a Passport Bearer token.
+
+### Request parameters
+
+<ParamField body="email" type="string" required>
+  The user's email address. When `loginVia` is `phone_only`, pass the phone number here instead.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The user's plaintext password.
+</ParamField>
+
+<ParamField body="fcm_last_login_device_token" type="string" required>
+  Firebase Cloud Messaging (FCM) device token for push notifications.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="response" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="status" type="number">
+      `200` on success, `401` on invalid credentials, `201` if email is unverified.
+    </ResponseField>
+    <ResponseField name="token" type="string">
+      Passport Bearer access token. Include as `Authorization: Bearer {token}`.
+    </ResponseField>
+    <ResponseField name="user_id" type="number">
+      The authenticated user's ID.
+    </ResponseField>
+    <ResponseField name="uuid" type="string">
+      Unique identifier for the user.
+    </ResponseField>
+    <ResponseField name="first_name" type="string">
+      User's first name.
+    </ResponseField>
+    <ResponseField name="last_name" type="string">
+      User's last name.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      User's email address.
+    </ResponseField>
+    <ResponseField name="formattedPhone" type="string">
+      User's phone number in international format.
+    </ResponseField>
+    <ResponseField name="picture" type="string">
+      Filename of the user's profile picture.
+    </ResponseField>
+    <ResponseField name="defaultCountry" type="string">
+      ISO short code of the platform's default country, e.g. `us`.
+    </ResponseField>
+    <ResponseField name="user-status" type="string">
+      Account status: `Active`, `Inactive`, or `Suspended`.
+    </ResponseField>
+    <ResponseField name="opt_verified_at" type="string">
+      Timestamp of OTP verification, if applicable.
+    </ResponseField>
+    <ResponseField name="fcm_last_login_device_token" type="string">
+      FCM token stored on the account.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Error responses
+
+| Status | Reason |
+|--------|--------|
+| `401` | Invalid credentials or user not found |
+| `201` | Email not yet verified — activation link has been resent |
+| `200` with `user-status: Inactive` | Account is inactive |
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/login \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "email": "user@example.com",
+    "password": "secret",
+    "fcm_last_login_device_token": "device-token-abc123"
+  }'
+```
+
+---
+
+## GET /check-user-status
+
+Checks whether a specific user account is active, inactive, or suspended. This endpoint does **not** require an Authorization header.
+
+### Request parameters
+
+<ParamField query="user_id" type="number" required>
+  The ID of the user to check.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">
+  `200` on success.
+</ResponseField>
+
+<ResponseField name="user-status" type="string">
+  Account status: `Active`, `Inactive`, or `Suspended`.
+</ResponseField>
+
+```bash
+curl --request GET \
+  --url 'https://your-domain.com/api/check-user-status?user_id=42'
+```
+
+---
+
+## POST /logout
+
+Revokes the current user's Passport access token.
+
+<Info>Requires `Authorization: Bearer {token}` header.</Info>
+
+### Request parameters
+
+<ParamField body="user_id" type="number" required>
+  The authenticated user's ID.
+</ParamField>
+
+### Response fields
+
+<ResponseField name="status" type="number">
+  `200` on success.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Confirmation message.
+</ResponseField>
+
+```bash
+curl --request POST \
+  --url https://your-domain.com/api/logout \
+  --header 'Authorization: Bearer {token}' \
+  --header 'Content-Type: application/json' \
+  --data '{"user_id": 42}'
+```

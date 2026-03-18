@@ -1,0 +1,66 @@
+---
+title: 'PayPal Integration'
+description: 'Accept PayPal payments for wallet deposits using the PayPal JavaScript SDK.'
+keywords: ['paypal', 'deposit', 'payment gateway', 'sandbox']
+---
+
+Doss supports PayPal as a deposit method. The integration uses the PayPal JavaScript SDK on the client side: the user completes the PayPal checkout flow in-browser, and the resulting transaction details are posted back to Doss to create the deposit record.
+
+## Prerequisites
+
+- A [PayPal Business account](https://www.paypal.com/bizsignup/)
+- A PayPal app with a **Client ID** created in the [PayPal Developer Dashboard](https://developer.paypal.com/developer/applications/)
+- The PayPal payment method enabled for the target currency in the Doss admin panel
+
+## Configuration
+
+<Steps>
+  <Step title="Create a PayPal app">
+    In the PayPal Developer Dashboard, create a new REST app under **My Apps & Credentials**. Note the **Client ID** for both the Sandbox and Live environments.
+  </Step>
+
+  <Step title="Enter credentials in the admin panel">
+    In Doss, navigate to **Payment Methods → PayPal**. Enter the **Client ID** (`client_id`) for the target currency. This value is stored in the `currency_payment_methods.method_data` JSON column.
+  </Step>
+
+  <Step title="Activate PayPal for deposit">
+    Enable the method for the **deposit** transaction type on each currency where PayPal should be available. The `activated_for` field must include `deposit`.
+  </Step>
+
+  <Step title="Set fees and limits">
+    Configure minimum/maximum deposit limits and the fee structure under **Fees & Limits** for the PayPal method.
+  </Step>
+</Steps>
+
+## Payment flow
+
+1. **Confirm page** — The user selects an amount and PayPal as the payment method on the deposit confirmation screen.
+2. **PayPal checkout view** — `POST /deposit` (the `store` action in `DepositController`) resolves the currency code and client ID, then renders `user.deposit.paypal`. The PayPal JS SDK is initialised with the `clientId` and the `totalAmount` (amount + fees) formatted to two decimal places.
+3. **User approves in PayPal** — The PayPal hosted checkout handles authentication and authorization entirely. On success, PayPal returns a transaction details object with `status: "COMPLETED"`.
+4. **Server-side confirmation** — The client posts the PayPal response to the server. The handler (`DepositController@paypalDepositPaymentSuccess`) verifies the session, creates `Deposit` and `Transaction` records with status `Success`, updates the wallet balance, and sends a deposit notification to the admin.
+5. **Success view** — The user is redirected to `user.deposit.success`.
+
+### Routes
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/deposit/payment_success` | PayPal redirect on approval |
+| `GET` | `/deposit/paypal-payment/success/{amount}` | PayPal deposit confirmation handler |
+| `GET` | `/deposit/payment/cancel` | Cancellation handler — clears session and returns error |
+
+For the mobile API, `Api\DepositMoneyController@paypalPaymentStore` handles the confirmation. It checks that the PayPal response `details.status` equals `COMPLETED` before creating records.
+
+## Sandbox vs production
+
+PayPal sandbox and live environments use different Client IDs:
+
+| Environment | Client ID prefix | Behavior |
+|-------------|-----------------|----------|
+| Sandbox | Starts with `A` (sandbox) | Test transactions, no real money |
+| Live | Starts with `A` (live) | Real transactions |
+
+Swap the Client ID stored in the admin panel to switch environments. The PayPal JS SDK selects the correct environment based on whether the Client ID belongs to a sandbox or live app.
+
+<Note>
+PayPal transactions are captured immediately on user approval. There is no separate authorization-and-capture step in this integration.
+</Note>

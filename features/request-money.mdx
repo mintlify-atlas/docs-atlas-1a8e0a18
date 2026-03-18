@@ -1,0 +1,140 @@
+---
+title: "Request Money"
+description: "Ask another Doss user to send you a specific amount. They can accept, pay, or decline the request."
+---
+
+## Overview
+
+Request Money lets you create a payment request directed at another user. The recipient receives a notification and can choose to pay or ignore the request. When the recipient pays, the funds move from their wallet to yours in the same way as a Send Money transfer. The requester can also open a dispute if there is a disagreement over the transaction.
+
+## Creating a payment request
+
+<Steps>
+  <Step title="Go to Request Money">
+    Navigate to **Send / Receive > Receive**. The form shows currencies with an active `Request Received` fees configuration.
+  </Step>
+  <Step title="Select a currency">
+    Choose the currency you want to receive. Only currencies with an active fee configuration are shown.
+  </Step>
+  <Step title="Enter the recipient">
+    Enter the recipient's email address, phone number (e.g. `+12015550123`), or Doss user ID (the numeric part of their `ZG-` ID).
+
+    The system validates:
+    - You cannot request money from yourself.
+    - Suspended or inactive accounts cannot be selected as recipients.
+  </Step>
+  <Step title="Enter the amount and note">
+    Enter the requested amount. A note is required — it is displayed to the recipient and stored on the transaction.
+  </Step>
+  <Step title="Review and confirm">
+    Review the request details on the confirmation screen and submit.
+  </Step>
+  <Step title="Request created">
+    Two transaction records are created immediately:
+    - A `Request_Sent` transaction for your account (status: `Pending`).
+    - A `Request_Received` transaction for the recipient's account (status: `Pending`).
+
+    If you do not yet have a wallet for the requested currency, one is created automatically.
+
+    The recipient receives an email and/or SMS notification.
+  </Step>
+</Steps>
+
+<Note>
+The OTP verification step (when enabled) requires you to enter the code sent to your registered phone number before the request is submitted.
+</Note>
+
+## How recipients receive and pay requests
+
+When a recipient receives a payment request, they get an email and/or SMS notification. To pay:
+
+<Steps>
+  <Step title="Open the request">
+    The recipient navigates to their **Request Money** list and opens the incoming request.
+  </Step>
+  <Step title="Review the request">
+    The request shows the requester's name, the amount requested, the currency, and the attached note.
+  </Step>
+  <Step title="Enter OTP">
+    An OTP is sent to the recipient's phone. They enter it to authorize the payment.
+  </Step>
+  <Step title="Accept payment">
+    The recipient can pay the full requested amount or a different amount (the `accept_amount` field). On confirmation:
+    - The recipient's wallet is debited for `accept_amount + fees`.
+    - The requester's wallet is credited with `accept_amount`.
+    - Both transaction records are updated to `Success`.
+    - The `RequestPayment` record is updated with `accept_amount` and status `Success`.
+  </Step>
+</Steps>
+
+## Fee structure
+
+Fees are applied to the **recipient** (the person paying the request), not the requester. Fees are configured per currency under the `Request Received` transaction type:
+
+```
+percentage_fee = accept_amount × (charge_percentage ÷ 100)
+total_deducted = accept_amount + percentage_fee + fixed_fee
+```
+
+The requester receives `accept_amount` without fee deduction.
+
+## Accepting and declining requests
+
+| Action | Behaviour |
+|---|---|
+| **Accept / Pay** | Wallet debit processed; both transaction records updated to `Success` |
+| **Decline / Ignore** | No funds move; the request remains `Pending` indefinitely unless disputed |
+
+<Tip>
+There is no explicit decline flow — recipients can simply not pay. If a dispute is needed, the requester can open a dispute against the transaction.
+</Tip>
+
+## Dispute flow
+
+If a payment is contested, either party can raise a dispute against the associated transaction:
+
+1. Navigate to the transaction in your **Transactions** list.
+2. Open the dispute option on the transaction detail.
+3. A `Dispute` record is linked to the transaction.
+4. The dispute is reviewed by the administrator, who can update transaction and wallet balances as needed.
+
+<Note>
+The dispute feature is available on transactions that have a linked `dispute` relationship. Not all transaction types support disputes — check the transaction detail for the option.
+</Note>
+
+## Request status lifecycle
+
+| Status | Meaning |
+|---|---|
+| `Pending` | Request created; recipient has not yet paid |
+| `Success` | Recipient paid the request; funds transferred |
+
+Both the `RequestPayment` record and the associated `Transaction` records reflect the same status.
+
+## Notifications
+
+The system sends notifications at the following events:
+
+| Event | Recipients notified |
+|---|---|
+| Request created | Recipient (email and/or SMS) and administrator (email) |
+| Request accepted | Requester (email and/or SMS) and administrator (email) |
+
+Notification channels (email, phone, or both) are determined by the `processed_by` platform preference.
+
+## Related features
+
+<CardGroup cols={2}>
+  <Card title="Send Money" icon="paper-plane" href="/features/send-money">
+    Send funds proactively instead of requesting them.
+  </Card>
+  <Card title="Invoices" icon="file-invoice" href="/features/invoices">
+    Create formal itemized invoices for recipients to pay.
+  </Card>
+  <Card title="Digital Wallet" icon="wallet" href="/features/wallet">
+    View your wallet balance and transaction history.
+  </Card>
+  <Card title="Merchant Payments" icon="store" href="/features/merchant-payments">
+    Accept payments as a merchant using QR codes.
+  </Card>
+</CardGroup>

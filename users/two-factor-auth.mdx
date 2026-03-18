@@ -1,0 +1,153 @@
+---
+title: "Two-Factor Authentication"
+description: "How to enable and use two-factor authentication in Doss using SMS OTP or Google Authenticator."
+---
+
+Two-factor authentication (2FA) adds a second verification step after you enter your password. Doss supports two 2FA methods. You can switch between them at any time from your profile settings.
+
+<Info>
+  2FA must be enabled system-wide by an administrator under **Preferences** before users can configure it. When the `two_step_verification` preference is `Enabled`, the 2FA settings appear in your profile.
+</Info>
+
+## Available methods
+
+<Tabs>
+  <Tab title="SMS OTP">
+    An SMS one-time password (OTP) is a 6-digit code sent to your registered phone number. The code is generated fresh each time you log in or switch to this method.
+
+    **Requirements:**
+    - A verified phone number must be saved on your account before you can enable this method.
+    - The platform SMS gateway (e.g. Twilio) must be configured and active by an admin.
+
+    **How it works:**
+
+    <Steps>
+      <Step title="Go to 2FA settings">
+        Navigate to your profile and open the **Two-Factor Authentication** section at `profile/two-fa`.
+      </Step>
+
+      <Step title="Select Phone as your 2FA method">
+        Choose **Phone** from the method selector. If no phone number is on your account, you are prompted to add one first.
+
+        The system verifies that your account has a `carrierCode` and `phone` set:
+
+        ```json
+        // Response when phone is not set
+        { "status": false, "message": "Please set your phone number first!" }
+        ```
+      </Step>
+
+      <Step title="Receive and enter the OTP">
+        A 6-digit code is sent to your phone number via SMS. Enter the code in the verification field on screen.
+
+        The OTP is stored against your account in `user_details.two_step_verification_code` until used.
+      </Step>
+
+      <Step title="Confirm and save">
+        Once the code is verified, `user_details.two_step_verification` is set to `1` and `two_step_verification_type` is set to `phone`. SMS OTP is now your active 2FA method.
+      </Step>
+    </Steps>
+
+    **Login flow with SMS OTP enabled:**
+
+    1. Enter your email/phone and password as usual.
+    2. After successful password check, you are redirected to the 2FA verification screen.
+    3. A new OTP is sent to your phone.
+    4. Enter the code. On success, a `2fa` key is placed in the session and you are admitted to the dashboard.
+
+    **Remember this device:**
+    You can check **Remember me on this device** during verification. The platform records your browser fingerprint in `device_logs`. On subsequent logins from the same browser, you skip the 2FA prompt.
+  </Tab>
+
+  <Tab title="Google Authenticator">
+    Google Authenticator generates time-based one-time passwords (TOTP) in an authenticator app on your phone. No SMS is required — codes are generated offline every 30 seconds.
+
+    **Requirements:**
+    - Google Authenticator (or any TOTP-compatible app such as Authy or 1Password) installed on your phone.
+
+    **Setup:**
+
+    <Steps>
+      <Step title="Go to 2FA settings">
+        Navigate to your profile and open the **Two-Factor Authentication** section at `profile/two-fa`.
+      </Step>
+
+      <Step title="Select Google Authenticator">
+        Choose **Google Authenticator** from the method selector. The platform generates a new TOTP secret key using the `pragmarx/google2fa` library and returns a QR code inline image.
+
+        ```json
+        // Response
+        {
+          "status": true,
+          "secret": "BASE32SECRETKEY",
+          "QR_Image": "<svg ...>",
+          "twoFaVerificationTypeForResponse": "google_authenticator"
+        }
+        ```
+      </Step>
+
+      <Step title="Scan the QR code">
+        Open your authenticator app and scan the QR code displayed on screen. The entry will be labelled with your Doss account email and the platform name.
+
+        If your app does not support QR scanning, enter the secret key shown below the QR code manually.
+      </Step>
+
+      <Step title="Enter the 6-digit code">
+        Your authenticator app displays a 6-digit code that changes every 30 seconds. Enter the current code in the verification field to confirm that setup was successful.
+
+        The platform verifies the code using:
+
+        ```php
+        $valid = $google2fa->verifyKey($user->google2fa_secret, $secret);
+        ```
+      </Step>
+
+      <Step title="Save">
+        On successful verification, your `google2fa_secret` is saved to your user record and `two_step_verification_type` is set to `google_authenticator`. Setup is complete.
+      </Step>
+    </Steps>
+
+    **Login flow with Google Authenticator enabled:**
+
+    1. Enter your email/phone and password as usual.
+    2. After successful password check, you are redirected to the Google Authenticator verification screen at `setting/google2fa-verify`.
+    3. Open your authenticator app and enter the current 6-digit code.
+    4. On success, the `google2fa` session key is cleared, a `2fa` key is placed in the session, and you are admitted to the dashboard.
+
+    **Remember this device:**
+    Checking **Remember me** during verification logs your browser fingerprint in `device_logs`. Subsequent logins from the same browser skip the TOTP prompt.
+  </Tab>
+</Tabs>
+
+## Switching methods
+
+You can switch between SMS OTP and Google Authenticator at any time from `profile/two-fa`. When you select a different method:
+
+1. The platform sends a verification challenge using the new method.
+2. You enter the code to confirm the switch.
+3. `user_details.two_step_verification_type` is updated to the newly selected method.
+
+Switching does not disable 2FA — it changes the active method.
+
+## Disabling 2FA
+
+To disable 2FA entirely:
+
+1. Open `profile/two-fa`.
+2. Deselect your current method (set `two_step_verification_type` to `null` or the disabled state).
+3. Confirm the change. `user_details.two_step_verification` is set to `0`.
+
+<Warning>
+  Disabling 2FA reduces the security of your account. Only do this if you no longer have access to your phone or authenticator app. Contact support if you are locked out.
+</Warning>
+
+## Recovery options
+
+Doss does not currently generate one-time recovery codes. If you lose access to your 2FA method:
+
+- **SMS OTP:** Contact support to update your phone number. An admin can clear the `two_step_verification_type` from your account.
+- **Google Authenticator:** If you lose your device, contact support. An admin can clear the `google2fa_secret` field on your account, which removes the Google Authenticator binding and allows you to set up a new one.
+
+<Note>
+  If you are a Doss user (`type = 'doss'`), there is a separate 2FA management page at `/doss/2fa`. The setup and verification flow is the same as described above.
+</Note>

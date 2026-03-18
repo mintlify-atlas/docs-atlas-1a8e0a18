@@ -1,0 +1,188 @@
+---
+title: "Roles & Permissions"
+description: "An overview of the user types in Doss, what each role can do, and how roles are assigned."
+---
+
+Doss uses a role-based access control (RBAC) system to determine what each user can see and do inside the platform. Every user account has a single role stored in the `role_id` column of the `users` table. Roles are defined in the `roles` table and linked to permissions through the `permission_role` pivot table.
+
+## User types
+
+There are seven distinct user types in Doss. Each maps to a `customer_type` value in the `roles` table.
+
+| Type | `customer_type` | Description |
+|---|---|---|
+| Regular User | `user` | End-customers who hold a wallet, send money, and pay merchants. |
+| Merchant | `merchant` | Businesses that accept payments via the merchant payment flow. |
+| Cashier | `cashier` | Merchant staff who process in-person payments and manage shifts. |
+| Manager | `manager` | Merchant managers who oversee cashiers, view shift reports, and monitor transactions. |
+| Doss User | `doss` | Internal Doss platform operators with elevated access to fund distribution. |
+| Inspector | `inspector` | Auditors assigned by a Doss user to review distributed payment records. |
+| Admin | `admin` | Platform administrators who manage the entire system through the admin panel. |
+
+## Role details
+
+<AccordionGroup>
+  <Accordion title="Regular User">
+    Regular users register through the public registration flow at `/register`. After verifying their phone number via OTP, they receive the default role where `customer_type = 'user'`.
+
+    **Capabilities:**
+    - Hold one or more currency wallets
+    - Send and receive money via transfer
+    - Pay merchants by QR code or merchant payment link
+    - Request payments from other users
+    - Deposit and withdraw funds
+    - Submit KYC documents (identity and address proof)
+    - Enable two-factor authentication (SMS OTP or Google Authenticator)
+    - Open and manage support tickets
+    - View personal transaction history and activity logs
+
+    **Restrictions:**
+    - Cannot access the admin panel
+    - Cannot manage other users
+    - Cannot start or end cashier shifts
+  </Accordion>
+
+  <Accordion title="Merchant">
+    Merchants register through the same public flow but select the merchant account type. The system assigns the default role where `customer_type = 'merchant'`.
+
+    **Capabilities:**
+    - Everything a Regular User can do
+    - Accept payments through the merchant payment gateway
+    - Manage merchant apps and API keys
+    - Create and send invoices
+    - View merchant-specific payment reports
+    - Create and manage Cashier accounts under their merchant ID
+    - Create and manage Manager accounts under their merchant ID
+
+    **Restrictions:**
+    - Cannot access the admin panel
+    - Cannot view other merchants' data
+  </Accordion>
+
+  <Accordion title="Cashier">
+    Cashier accounts are created by a Merchant or an Admin. The account is linked to the merchant via the `merchant_id` field on the `users` table. The default role is where `customer_type = 'cashier'`.
+
+    **Capabilities:**
+    - Log in via the dedicated cashier login page (`/cashier_login`)
+    - Start and end work shifts
+    - Accept `Payment_Received` transactions during an active shift
+    - View their own shift history and per-shift transaction details
+    - Export shift transaction reports as XLSX or PDF
+    - View a cashier-specific QR code for accepting payments
+
+    **Restrictions:**
+    - Cannot send money or make transfers
+    - Cannot access merchant settings
+    - Cannot view transactions outside their own shifts
+    - Cannot manage other users
+  </Accordion>
+
+  <Accordion title="Manager">
+    Manager accounts are created by a Merchant. The account is linked to the merchant via `merchant_id`. The default role is where `customer_type = 'manager'`.
+
+    **Capabilities:**
+    - Log in via the dedicated manager login page (`/manager_login`)
+    - View shift history and transaction reports for all cashiers under the same merchant
+    - Export cashier shift reports (XLSX and PDF) on behalf of any cashier
+    - View the manager dashboard with an overview of merchant activity
+
+    **Restrictions:**
+    - Cannot process payments directly
+    - Cannot start or end shifts
+    - Cannot modify merchant settings
+  </Accordion>
+
+  <Accordion title="Doss User">
+    Doss users are internal platform operators. They are created through the admin panel and log in via `/doss_login`. The role maps to `customer_type = 'doss'`.
+
+    **Capabilities:**
+    - Access the Doss-specific dashboard (`user.doss_dashboard`)
+    - Distribute funds to end users via `Doss_payments`
+    - Create and manage Inspector accounts (inspectors are linked to their creator via `doss_id`)
+    - View fund distribution history
+
+    **Restrictions:**
+    - Cannot access the main admin panel
+    - Cannot modify platform-wide settings
+  </Accordion>
+
+  <Accordion title="Inspector">
+    Inspectors are created by a Doss user. Each inspector is linked to their creating Doss user via the `doss_id` field on the `users` table. The role maps to `customer_type = 'inspector'`.
+
+    **Capabilities:**
+    - Access the inspector dashboard (`user.inspector_dashboard`)
+    - View all fund distributions made by the associated Doss user
+    - Monitor payment status across the assigned distribution records
+
+    **Restrictions:**
+    - Read-only access to distribution data
+    - Cannot initiate payments or transfers
+    - Cannot manage other users
+  </Accordion>
+
+  <Accordion title="Admin">
+    Admins access the platform through a separate admin authentication guard (`admin`). Admin accounts are stored in the `admins` table, not the `users` table.
+
+    **Capabilities:**
+    - Full access to the admin panel at `/admin/home`
+    - Manage all users, roles, and permissions
+    - Create and assign roles with specific permission sets
+    - Review and approve or reject KYC documents
+    - Configure fees, limits, currencies, and payment methods
+    - Manage platform-wide preferences and settings
+    - View all transactions across all users
+    - Export shift reports for any cashier
+
+    **Restrictions:**
+    - Admin accounts cannot hold user wallets or perform end-user transactions
+  </Accordion>
+</AccordionGroup>
+
+## How roles are assigned
+
+Role assignment depends on how the user account is created:
+
+**Self-registration (users and merchants)**
+
+When a user registers at `/register`, the system looks up the default role for the selected account type:
+
+```php
+// Regular user
+$role = Role::where(['customer_type' => 'user', 'user_type' => 'User', 'is_default' => 'Yes'])->first();
+
+// Merchant
+$role = Role::where(['customer_type' => 'merchant', 'user_type' => 'User', 'is_default' => 'Yes'])->first();
+```
+
+After saving, a record is inserted into the `role_user` pivot table:
+
+```php
+RoleUser::insert(['user_id' => $user->id, 'role_id' => $user->role_id, 'user_type' => 'User']);
+```
+
+**Admin-created accounts (cashiers, managers, Doss users, inspectors)**
+
+When an admin creates a cashier, manager, Doss user, or inspector, the `role_id` is passed directly in the request and set on the user record. The system also sets the `type` field to the appropriate value (`cashier`, `manager`, `doss`, `inspector`).
+
+## Permission system
+
+Permissions are stored in the `permissions` table and associated with roles through the `permission_role` pivot table. Each permission has:
+
+| Field | Description |
+|---|---|
+| `group` | Logical grouping, e.g. `user`, `transaction`, `merchant` |
+| `name` | Unique machine-readable identifier |
+| `display_name` | Human-readable label shown in the admin UI |
+| `user_type` | Whether the permission applies to `User` or `Admin` accounts |
+
+To check which permissions a role has, the system queries `permission_role` by `role_id`:
+
+```php
+$permissionIds = DB::table('permission_role')->where('role_id', $roleId)->pluck('permission_id');
+```
+
+Admins can configure role permissions from the admin panel under **Roles & Permissions**. Changes take effect immediately on the next request by any user holding that role.
+
+<Info>
+  The `is_default` flag on a role determines which role is automatically assigned during self-registration. Only one role per `customer_type` and `user_type` combination should be marked as default.
+</Info>
