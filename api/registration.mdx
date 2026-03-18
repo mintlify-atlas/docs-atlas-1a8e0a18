@@ -148,16 +148,28 @@ Creates a new user account. On success, creates a default wallet, assigns a role
   The desired password.
 </ParamField>
 
-<ParamField body="fcm_last_login_device_token" type="string" required>
-  Firebase Cloud Messaging device token.
+<ParamField body="fcm_last_login_device_token" type="string">
+  Firebase Cloud Messaging device token. Stored on the user record for push notification delivery. Optional — omit if not using the mobile app.
 </ParamField>
 
-<ParamField body="type" type="string" required>
-  User role type. Must match an available role returned by `/check-merchant-user-role-existence` (e.g. `user` or `merchant`).
+<ParamField body="type" type="string">
+  User role type: `user` or `merchant`. Determines which default role is assigned. If omitted, the platform assigns the default user role.
 </ParamField>
 
 <ParamField body="phone" type="string">
   Phone number in international format. Must be unique across all users.
+</ParamField>
+
+<ParamField body="formattedPhone" type="string">
+  Full international phone number including country code prefix (e.g. `+11234567890`). Used alongside `carrierCode`.
+</ParamField>
+
+<ParamField body="carrierCode" type="string">
+  Country dial code without the `+` prefix (e.g. `1` for US). Used to format the phone number.
+</ParamField>
+
+<ParamField body="defaultCountry" type="string">
+  ISO country code for the user's default country (e.g. `us`).
 </ParamField>
 
 ### Response fields
@@ -192,8 +204,10 @@ curl --request POST \
     "last_name": "Doe",
     "email": "jane@example.com",
     "password": "secret123",
-    "fcm_last_login_device_token": "device-token-abc123",
     "type": "user",
-    "phone": "+11234567890"
+    "phone": "+11234567890",
+    "formattedPhone": "+11234567890",
+    "carrierCode": "1",
+    "defaultCountry": "us"
   }'
 ```

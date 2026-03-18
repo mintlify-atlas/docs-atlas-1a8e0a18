@@ -50,10 +50,6 @@ Authenticates a user and returns a Passport Bearer token.
   The user's plaintext password.
 </ParamField>
 
-<ParamField body="fcm_last_login_device_token" type="string" required>
-  Firebase Cloud Messaging (FCM) device token for push notifications.
-</ParamField>
-
 ### Response fields
 
 <ResponseField name="response" type="object">
@@ -114,8 +110,7 @@ curl --request POST \
   --header 'Content-Type: application/json' \
   --data '{
     "email": "user@example.com",
-    "password": "secret",
-    "fcm_last_login_device_token": "device-token-abc123"
+    "password": "secret"
   }'
 ```
 
@@ -150,15 +145,9 @@ curl --request GET \
 
 ## POST /logout
 
-Revokes the current user's Passport access token.
+Revokes the current user's Passport access token. No request body is required — the token is identified from the `Authorization` header.
 
 <Info>Requires `Authorization: Bearer {token}` header.</Info>
-
-### Request parameters
-
-<ParamField body="user_id" type="number" required>
-  The authenticated user's ID.
-</ParamField>
 
 ### Response fields
 
@@ -173,7 +162,5 @@ Revokes the current user's Passport access token.
 ```bash
 curl --request POST \
   --url https://your-domain.com/api/logout \
-  --header 'Authorization: Bearer {token}' \
-  --header 'Content-Type: application/json' \
-  --data '{"user_id": 42}'
+  --header 'Authorization: Bearer {token}'
 ```
